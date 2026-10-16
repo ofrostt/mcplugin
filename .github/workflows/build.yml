@@ -1,4 +1,4 @@
-name: Build plugins
+name: Build plugin
 
 on:
   push:
@@ -22,23 +22,20 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-          cache-dependency-path: |
-            pom.xml
-            frostduels/pom.xml
+          cache-dependency-path: pom.xml
 
-      - name: Build and test both plugins
+      - name: Build and test unified plugin
         run: bash build-all.sh clean
 
-      - name: Collect plugin JARs
+      - name: Collect plugin JAR
         run: |
           mkdir -p dist
-          cp target/FrostMenu-*.jar dist/
-          cp frostduels/target/FrostDuels-*.jar dist/
+          cp target/FrostDuels-*.jar dist/
 
       - name: Upload downloadable plugins
         uses: actions/upload-artifact@v4
         with:
-          name: FrostPlugins
+          name: FrostDuels
           path: dist/*.jar
           if-no-files-found: error
           retention-days: 30

@@ -2,6 +2,9 @@ package dev.ofrostt.frostduels;
 
 import java.io.*;
 import java.util.*;
+import java.time.Duration;
+import java.util.function.Consumer;
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.*;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -47,12 +50,22 @@ public class FrostDuels extends JavaPlugin {
             getLogger().severe("Startup refused: " + ex.getMessage()); getServer().getPluginManager().disablePlugin(this); return;
         }
         DuelCommands commands = new DuelCommands(this);
-        Objects.requireNonNull(getCommand("frostduels")).setExecutor(commands);
-        getCommand("frostduels").setTabCompleter(commands);
+        Objects.requireNonNull(getCommand("frostmenu")).setExecutor(commands);
+        getCommand("frostmenu").setTabCompleter(commands);
+        updateAdminPermissionMessage();
         DuelEvents events = new DuelEvents(this);
         getServer().getPluginManager().registerEvents(events, this); events.cleanupLoaded();
         getServer().getScheduler().runTaskTimer(this, this::tick, 20, 20);
         for (Player player : Bukkit.getOnlinePlayers()) recover(player, false);
+    }
+    protected Runnable prepareMenuReload() throws Exception { return () -> {}; }
+    void updateAdminPermissionMessage() {
+        Objects.requireNonNull(getCommand("frostmenu")).permissionMessage(text(settings.text("prefix") + settings.text("no-permission"), Map.of()));
+    }
+    protected Set<String> selectableArenas() {
+        Set<String> result = new TreeSet<>();
+        for (var arena : store.arenas()) if (arena.ready() && !busy(arena.id()) && !terrain.locked.contains(arena.id())) result.add(arena.id());
+        return result;
     }
 
     @Override public void onDisable() {
@@ -81,9 +94,9 @@ public class FrostDuels extends JavaPlugin {
         }
     }
 
-    void request(Player sender, Player target, String kit, int rounds, String map) {
+    protected void request(Player sender, Player target, String kit, int rounds, String map) {
         if (sender.equals(target)) { tell(sender, "self"); return; }
-        if (!target.hasPermission("frostduels.use") || !available(sender) || !available(target)) { tell(sender, "unavailable"); return; }
+        if (!sender.hasPermission("frostduels.use") || !target.hasPermission("frostduels.use") || !available(sender) || !available(target)) { tell(sender, "unavailable"); return; }
         if (store.kit(kit) == null || (!map.equals("random") && store.arena(map) == null)) { tell(sender, "not-found"); return; }
         if (store.lobby() == null || store.lobby().getWorld() == null || store.arenas().stream().noneMatch(DuelStore.Arena::ready)) { tell(sender, "not-ready"); return; }
         if (rounds < 1 || rounds > settings.maxRounds) { tell(sender, "invalid-rounds", Map.of("max", "" + settings.maxRounds)); return; }
@@ -97,11 +110,29 @@ public class FrostDuels extends JavaPlugin {
         Map<String, String> values = Map.of("player", sender.getName(), "target", target.getName(), "kit", kit, "rounds", "" + rounds, "map", map);
         tell(sender, "requested", values); tell(target, "received", values);
         target.sendMessage(text(settings.text("accept-button"), values)
-                .clickEvent(ClickEvent.runCommand("/frostduels accept " + sender.getName()))
+                .clickEvent(playerButton(target, settings.expiry, actor -> respond(actor, request, true)))
                 .hoverEvent(HoverEvent.showText(text(settings.text("accept-hover"), values)))
                 .append(text(settings.text("deny-button"), values)
-                        .clickEvent(ClickEvent.runCommand("/frostduels deny " + sender.getName()))
+                        .clickEvent(playerButton(target, settings.expiry, actor -> respond(actor, request, false)))
                         .hoverEvent(HoverEvent.showText(text(settings.text("deny-hover"), values)))));
+    }
+
+    ClickEvent playerButton(Player owner, long seconds, Consumer<Player> action) {
+        return ClickEvent.callback(audience -> {
+            if (!(audience instanceof Player actor) || !actor.getUniqueId().equals(owner.getUniqueId()) || !isEnabled()) return;
+            Bukkit.getScheduler().runTask(this, () -> { if (actor.isOnline() && isEnabled()) action.accept(actor); });
+        }, ClickCallback.Options.builder().uses(1).lifetime(Duration.ofSeconds(seconds)).build());
+    }
+    void respond(Player target, Request request, boolean accepted) {
+        RequestKey key = new RequestKey(request.sender, request.target);
+        if (!target.getUniqueId().equals(request.target)) return;
+        Player sender = Bukkit.getPlayer(request.sender);
+        if (requests.get(key) != request || request.expires <= System.currentTimeMillis() || sender == null || !target.canSee(sender)) {
+            tell(target, "expired"); return;
+        }
+        if (!target.hasPermission("frostduels.use")) { tell(target, "no-permission"); return; }
+        if (accepted) accept(target, sender);
+        else if (requests.remove(key, request)) { tell(target, "denied"); tell(sender, "denied-sender", Map.of("player", target.getName())); }
     }
 
     void accept(Player target, Player sender) {
@@ -133,10 +164,18 @@ public class FrostDuels extends JavaPlugin {
         purge(sender.getUniqueId()); purge(target.getUniqueId());
         tell(sender, "starting", Map.of("opponent", target.getName(), "arena", arena.id(), "rounds", "" + request.rounds));
         tell(target, "starting", Map.of("opponent", sender.getName(), "arena", arena.id(), "rounds", "" + request.rounds));
+        leaveButton(sender, match); leaveButton(target, match);
         prepareRound(match);
     }
 
-    boolean available(Player player) {
+    private void leaveButton(Player player, Match match) {
+        player.sendMessage(text(settings.text("leave-button"), Map.of())
+                .hoverEvent(HoverEvent.showText(text(settings.text("leave-hover"), Map.of())))
+                .clickEvent(playerButton(player, (2L * settings.roundLimit + settings.countdown + 2) * (2L * match.state.required - 1) + 60,
+                        actor -> { if (playing.get(actor.getUniqueId()) == match) leave(actor, true); })));
+    }
+
+    protected boolean available(Player player) {
         return player.isOnline() && !player.isDead() && player.getGameMode() != GameMode.SPECTATOR
                 && !playing.containsKey(player.getUniqueId()) && !store.pending(player.getUniqueId());
     }
@@ -209,7 +248,7 @@ public class FrostDuels extends JavaPlugin {
         catch (Exception ex) { log(ex); if (first != null) tell(first, "arena-locked"); if (second != null) tell(second, "arena-locked"); }
     }
 
-    boolean recover(Player player, boolean notify) {
+    protected boolean recover(Player player, boolean notify) {
         if (!store.pending(player.getUniqueId())) { if (notify) tell(player, "no-recovery"); return true; }
         if (playing.containsKey(player.getUniqueId()) || player.isDead()) return false;
         try {
@@ -243,7 +282,7 @@ public class FrostDuels extends JavaPlugin {
         Player first = Bukkit.getPlayer(match.state.first), second = Bukkit.getPlayer(match.state.second);
         if (first != null) tell(first, key, values); if (second != null) tell(second, key, values);
     }
-    void tell(CommandSender sender, String key) { tell(sender, key, Map.of()); }
+    protected void tell(CommandSender sender, String key) { tell(sender, key, Map.of()); }
     void tell(CommandSender sender, String key, Map<String, String> values) {
         sender.sendMessage(text(settings.text("prefix") + settings.text(key), values));
     }

@@ -105,9 +105,15 @@ final class DuelEvents implements Listener {
         Player player = event.getPlayer();
         if (match(player) == null && !plugin.recovering(player)) return;
         String[] words = event.getMessage().substring(1).trim().toLowerCase(Locale.ROOT).split("\\s+");
-        boolean ours = Set.of("fd", "frostduels", "frostduels:fd", "frostduels:frostduels").contains(words[0]);
-        boolean allowed = ours && words.length == 2 && (words[1].equals("leave") || words[1].equals("recover"));
+        boolean ours = Set.of("frostmenu", "fd", "frostduels", "frostduels:frostmenu", "frostduels:fd", "frostduels:frostduels").contains(words[0]);
+        boolean adminStop = ours && player.hasPermission("frostduels.admin") && words.length == 3 && words[1].equals("stop");
+        boolean retry = match(player) == null && Set.of("duel", "frostduels:duel").contains(words[0]);
+        boolean allowed = adminStop || retry;
         if (!allowed) { event.setCancelled(true); plugin.tell(player, "command-blocked"); }
+    }
+    @EventHandler public void commands(PlayerCommandSendEvent event) {
+        if (!event.getPlayer().hasPermission("frostduels.admin")) event.getCommands().removeIf(name ->
+                Set.of("frostmenu", "frostduels", "fd", "frostduels:frostmenu", "frostduels:frostduels", "frostduels:fd").contains(name.toLowerCase(Locale.ROOT)));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

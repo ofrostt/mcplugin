@@ -1,76 +1,91 @@
-# FrostMenu + FrostDuels
+# FrostDuels 2.0
 
-Two plugins for a dedicated **Paper 1.21.11 / Java 21** duel server. **Cloud is no longer required.**
+**One Paper 1.21.11 / Java 21 plugin containing FrostMenu and the duel engine.** Install only `FrostDuels-2.0.0.jar`.
 
-## Download from GitHub
+Players have one command: **`/duel <player>`**. Kit groups are **mctiers.io → Subtiers**. Page arrows change groups, inner arrows cycle the highlighted kit, and Confirm opens the native dialog. Choose rounds and a map, then Send Duel. The opponent clicks **ACCEPT** or **DENY** in chat. During a match, **LEAVE DUEL** in chat forfeits. There are no player slash commands for accepting, declining, or leaving.
 
-Open [Build plugins in GitHub Actions](https://github.com/ofrostt/mcplugin/actions/workflows/build.yml), select a successful run, then click **FrostPlugins** under **Artifacts**. Sign in to GitHub if prompted. Extract the downloaded ZIP to get both plugin JARs. Artifacts expire after 30 days; use **Run workflow** on the repository's main branch to generate a fresh download when needed. Each push also builds and tests both plugins automatically.
+## Download and install
 
-`/frostmenu <player>` → kit pages → choose with Previous/Next Kit → Confirm → native confirmation dialog → FrostDuels challenge → opponent accepts → countdown → first-to-N match → return to lobby.
+Open [Build plugin in GitHub Actions](https://github.com/ofrostt/mcplugin/actions/workflows/build.yml), select a successful run, then download **FrostDuels** under **Artifacts** while signed into GitHub. Extract the ZIP to get the single JAR. Artifacts expire after 30 days; Run workflow or a new push generates another build.
 
-FrostMenu handles configurable inventory menus and native dialog text. FrostDuels handles kits, arena reservation, challenge acceptance, rounds, gameplay rules, terrain snapshots, and player recovery. Install both JARs. No web service or database is needed.
+Stop the server and remove old FrostMenu and FrostDuels JARs, PakMenu, and Cloud before installing the new JAR. **Keep the existing plugin data folders.** Do not run the old and combined plugins together.
 
-## Install and first duel
+The unified plugin is named FrostDuels, so existing `plugins/FrostDuels/data.yml`, `arenas/`, and `recovery/` stay in use. If `plugins/FrostDuels/menu.yml` does not exist, the old `plugins/FrostMenu/config.yml` is copied there without deleting the old file. An existing `menu.yml` is never overwritten.
 
-1. Build with JDK 21 and Maven 3.9+: `bash build-all.sh`. Outputs:
-   - `target/FrostMenu-1.2.1.jar`
-   - `frostduels/target/FrostDuels-1.0.0.jar`
-2. Stop the server, remove PakMenu and Cloud, and put both new JARs in `plugins/`. Start Paper 1.21.11.
-3. Stand at a safe lobby **outside all arena regions**, then run `/fd setlobby` as an operator.
-4. Put the desired kit in your inventory, including armor and offhand. Apply any starting potion effects you want saved. Run `/fd kit save Sword-IO`.
-5. Run `/fd arena create arena1`. Stand at the first spawn and run `/fd arena setspawn arena1 1`; stand at the opponent's spawn and run `/fd arena setspawn arena1 2`. Look in the directions players should face before saving the spawns.
-6. For terrain-changing kits, save a template with `/fd arena snapshot arena1 32 128` (use heights appropriate to your arena). The region extends horizontally from the two spawns plus `arena-padding-blocks` on each side, and vertically from Y 32 through 128 in this example. Templates are capped at 1,000,000 blocks. Include the complete arena and safe margins; both spawns must fit inside.
-7. With two players online, run `/frostmenu OtherPlayer`. Use the page arrows to change kit groups, use Previous/Next Kit to move the glowing highlight, then click Confirm. Set rounds in the dialog and click Send Duel. The other player clicks **ACCEPT** or runs `/fd accept YourName`.
+Files:
 
-The default menu lists PakMenu's example kit IDs. Create those kits or change the IDs in `plugins/FrostMenu/config.yml`. Menu entries do not create kits automatically.
+| File under `plugins/FrostDuels/` | Purpose |
+| --- | --- |
+| `config.yml` | Gameplay rules, timers, regeneration, terrain limits, and engine messages |
+| `menu.yml` | Kit pages, headings, buttons, native dialog text/icons, and optional map labels |
+| `data.yml` | Saved kits, arenas, and lobby; managed by admin commands |
+| `arenas/` | Native terrain templates and pending reset markers |
+| `recovery/` | Pre-duel player snapshots; retained until restoration succeeds |
 
-When upgrading from the previous FrostMenu build, existing config files are preserved. Change `integration.duel-command` in the existing **FrostMenu** config to:
+Old `integration.duel-command` or per-kit command templates are ignored. Menus call the integrated engine directly and do not execute player command templates. New gameplay/menu settings fall back to built-in defaults without overwriting existing config files.
+
+## Make and edit kits (OP/admin)
+
+1. Equip the desired inventory, armor, offhand, and starting potion effects.
+2. Save the loadout with `/frostmenu kit save Sword-IO`.
+3. `Sword-IO` is already the first default menu entry. For another entry, its `kit` value in `menu.yml` must exactly match the saved ID.
+
+To edit: `/frostmenu kit load Sword-IO`, change your items/effects, then `/frostmenu kit save Sword-IO` again. **Loading replaces your current inventory and active effects**, so store personal items before loading a kit. Saving an existing ID overwrites that kit.
+
+The default menu IDs (for example Sword-IO, UHC-IO, Diamond-SMP) are examples; save the corresponding kits or change the menu to match your kit IDs. IDs are case-sensitive, 1–48 letters/digits/underscores/hyphens.
+
+## Create arenas and choose one
+
+As an operator:
+
+1. Stand at the safe return lobby: `/frostmenu setlobby`.
+2. Create an entry: `/frostmenu arena create arena1`.
+3. Stand at player one's spawn, facing the desired direction: `/frostmenu arena setspawn arena1 1`.
+4. Stand at player two's spawn: `/frostmenu arena setspawn arena1 2`.
+5. Save the original terrain: `/frostmenu arena snapshot arena1 32 128`. Replace 32 and 128 with heights enclosing the arena and both spawns, including safe margins.
+
+After both spawns are set, the arena **automatically appears in Map Selector while free and unlocked**. No menu edit is required. Players run `/duel OtherPlayer`, choose a kit and Confirm, click Map Selector, choose `arena1` or Random, then Send Duel. Random selects a free suitable arena on acceptance. A busy/deleted arena is rechecked when the challenge is accepted.
+
+To give an arena a friendly label, optionally add its exact ID under `maps` in `menu.yml`:
 
 ```yaml
-integration:
-  duel-command: frostduels:frostduels duel %target% %kit% %rounds% %map%
+maps:
+  random: '&6Random'
+  arena1: '&aDesert Arena'
 ```
 
-Then run `/frostmenu reload`. Update any per-gamemode `command` overrides too. New installs already use this template. `/duel <player>` remains a FrostMenu alias; `/frostmenu <player>` is unambiguous if another plugin owns `/duel`.
+Then `/frostmenu reload`. Labels do not create arenas, and incomplete/busy/locked arenas are not selectable. The identifier `random` is reserved.
 
-FrostMenu 1.2.1 opens kit pages directly in **mctiers.io → Subtiers** order. The earlier mctiers.com page is excluded by default. Set `menus.navigation.page-order` to a list of category IDs to choose which pages appear and their order. Existing category definitions are preserved; the page-order setting controls visibility. Bottom-left/right page arrows change groups, the two inner arrows cycle the highlighted kit, and the center Confirm button opens the dialog. Clicking a kit only highlights it, so a mouse click on a kit is optional. Selection is remembered separately on each page. Mouse hovering or keyboard arrow navigation is not used; these are server inventory buttons, so no client mod is needed.
+Arena regions span horizontally between the two spawns plus `arena-padding-blocks` on every side, and vertically across the saved snapshot's inclusive min/max Y. Arenas must not overlap or include the lobby. Templates are capped at 1,000,000 blocks. Spawn changes invalidate the previous snapshot; save a fresh one afterward. A terrain-changing kit requires a valid snapshot before admission.
 
-Existing configuration files remain unchanged: missing new navigation and sprite settings are supplied from built-in defaults. Existing custom headings, kit IDs, and item slots are preserved. Previous shipped emoji labels are upgraded to native item icons in memory; custom text is retained. Existing five-row default layouts have room for the controls; if your custom kit slots use 36/38/40/42/44, move either those kits or the controls. To adopt the compact new layout, put kit icons at slots 10–16, followed by 19–25. Copy new settings from `src/main/resources/config.yml` into your server config when you want to edit them.
+## Commands and permissions
 
-## All commands
-
-`/fd` aliases `/frostduels`. All commands also have namespaced forms, such as `/frostduels:frostduels accept Name`.
-
-| Command | Purpose | Permission |
+| Command | Who | Purpose |
 | --- | --- | --- |
-| `/frostmenu <player>` | Open kit pages with arrow selection and a Confirm button | `frostmenu.use` |
-| `/duel <player>` | Alias for the menu, subject to command conflicts | `frostmenu.use` |
-| `/frostmenu reload` | Reload menu headings, items, messages and integration | `frostmenu.reload` |
-| `/fd help` | Show player commands and, for admins, admin commands | None |
-| `/fd duel <player> <kit> [rounds] [map]` | Send a challenge directly; defaults to 1 round and random arena | `frostduels.use` |
-| `/fd accept <player>` | Accept that player's current challenge | `frostduels.use` |
-| `/fd deny <player>` | Reject that challenge | `frostduels.use` |
-| `/fd leave` | Forfeit and return to the lobby | `frostduels.use` |
-| `/fd recover` | Retry pending pre-duel state recovery outside a match | `frostduels.use` |
-| `/fd kit save <id>` | Create or overwrite a kit from your inventory, armor, offhand, and active effects | `frostduels.admin` |
-| `/fd kit load <id>` | Replace your current inventory and active effects with a kit for editing | `frostduels.admin` |
-| `/fd kit delete <id>` | Delete a saved kit | `frostduels.admin` |
-| `/fd kit list` | List saved kit IDs | `frostduels.admin` |
-| `/fd arena create <id>` | Create an arena entry | `frostduels.admin` |
-| `/fd arena setspawn <id> <spawn-number>` | Set one spawn to your position and facing; invalidates its old snapshot | `frostduels.admin` |
-| `/fd arena snapshot <id> <minY> <maxY>` | Save original blocks and block entity data, including containers | `frostduels.admin` |
-| `/fd arena reset <id>` | Reset an idle arena; moves players inside it to the lobby and retries a failed reset | `frostduels.admin` |
-| `/fd arena delete <id>` | Delete an idle, clean arena entry | `frostduels.admin` |
-| `/fd arena list` | List arena IDs, including incomplete entries | `frostduels.admin` |
-| `/fd setlobby` | Set the return lobby to your position | `frostduels.admin` |
-| `/fd stop <player>` | Stop that player's match without declaring a winner | `frostduels.admin` |
-| `/fd reload` | Reload gameplay rules and messages; requires no active matches | `frostduels.admin` |
+| `/duel <player>` | Players | Open kit selection and the confirmation dialog |
+| `/frostmenu help` | Admin | Show setup commands |
+| `/frostmenu kit save <id>` | Admin | Save/overwrite a loadout |
+| `/frostmenu kit load <id>` | Admin | Load a kit for editing; replaces inventory/effects |
+| `/frostmenu kit list` | Admin | List kit IDs |
+| `/frostmenu kit delete <id>` | Admin | Delete a kit |
+| `/frostmenu setlobby` | Admin | Save your location as the return lobby |
+| `/frostmenu arena create <id>` | Admin | Create an arena |
+| `/frostmenu arena setspawn <id> <number>` | Admin | Set spawn 1 or 2 |
+| `/frostmenu arena snapshot <id> <minY> <maxY>` | Admin | Capture original terrain and block entity data |
+| `/frostmenu arena reset <id>` | Admin | Reset an idle arena, retrying a failed reset |
+| `/frostmenu arena list` | Admin | List arena entries |
+| `/frostmenu arena delete <id>` | Admin | Delete an idle, clean arena entry |
+| `/frostmenu stop <player>` | Admin | Abort that player's match |
+| `/frostmenu recover <player>` | Admin | Retry pending restoration for an online player |
+| `/frostmenu reload` | Admin | Validate and reload both config files when no match is active |
 
-Player permissions default to true; admin/reload permissions default to operators. A kit ID is case-sensitive, 1–48 letters/digits/underscores/hyphens. `random` is reserved as a map choice. Kit loading replaces an administrator's current inventory/effects, so store any personal items before using it. To edit a saved kit: load it, change your equipment/effects, then save the same ID again.
+`frostduels.use` defaults to true. `frostduels.admin` defaults to OP. `/frostduels` and `/fd` remain **admin-only aliases** of `/frostmenu`; normal players cannot use or tab-complete them. `/frostmenu <player>` is no longer a player menu command. Assign the new use permission instead of the old `frostmenu.use` node if managing permissions explicitly.
 
-## Configure gameplay rules
+Accept/deny/leave buttons use Paper callbacks with owner, current-request/current-match, and expiry checks. They do not run exposed backend commands. During a match, other commands are blocked; an administrator can stop a match or use the console. Offline/dead players recover automatically on join/respawn.
 
-Edit `plugins/FrostDuels/config.yml`. `rules` supplies global defaults. `kit-rules.<exact-kit-id>` overrides any subset. For example:
+## Gameplay rules
+
+Edit `config.yml`, then `/frostmenu reload`. Global `rules` can be overridden per exact kit ID under `kit-rules`:
 
 ```yaml
 kit-rules:
@@ -92,69 +107,36 @@ kit-rules:
     max-build-y: 120
 ```
 
-Run `/fd reload` while no matches are active. `regeneration: false` blocks all normal health-regain events. With it true, `natural-regeneration` controls hunger/peaceful regeneration and `potion-regeneration` controls instant and over-time magic healing. `saturation: false` removes saturation effects, starts at zero saturation, clears saturation gained from food, and blocks the fast saturation-regeneration event. `hunger: false` prevents food-level decreases. Kit food/saturation values apply at every round start. Other plugins directly changing health or blocks can bypass Bukkit events; FrostDuels does not override their code.
+Y limits are inclusive. Terrain edits additionally stay within the arena snapshot's editable interior, with its outermost one-block shell protected against changes escaping the reset area. For the example limits, snapshot wider heights such as 32–128. `terrain-damage` is the master switch; building, breaking, and explosion terrain damage must be false when it is false. Explosion block damage follows the mining Y range. Fluids, fire, growth, gravity, and pistons are constrained to the active editable region.
 
-Y limits are **inclusive block coordinates**. Break and place limits are independent. Terrain edits also require the selected arena's saved snapshot. All edits must remain inside that snapshot, with its outermost one-block shell protected to stop changes spreading beyond the reset area. For the example limits above, snapshot something wider vertically, such as Y 32–128. Player movement is contained to the arena region; ender pearls and chorus fruit cannot escape it.
+`regeneration: false` blocks health-regain events. Otherwise natural and magic/potion healing have independent toggles. Disabling saturation removes saturation effects, clears food saturation, and blocks fast saturation regeneration. Disabling hunger prevents food-level decreases. Starting food/saturation applies every round. Other plugins directly changing health or blocks can bypass Bukkit events.
 
-`terrain-damage` is the master terrain switch. When false, building, breaking and explosion terrain damage must also be false. When true, building, breaking and explosion damage have independent toggles. Fluids, fire, growth, falling blocks and pistons are constrained to the active arena's editable interior. Explosion block damage also respects the mining Y range. The snapshot includes blocks and their block entity data; it does **not** rewind biomes, scheduled ticks, or pre-existing entities. Use dedicated, entity-free arenas without redstone/fluids crossing the protected boundary. Arena regions must not overlap or include the lobby.
+Templates restore blocks and block entity data (including containers) before rounds and after matches. They do not rewind biomes, scheduled ticks, or pre-existing entities. Use dedicated, entity-free arenas with no redstone/fluid system crossing the boundary. Capture/reset runs on the server thread, so keep volumes modest. Failed or interrupted resets keep the arena locked until `/frostmenu arena reset <id>` succeeds. Resolve dirty arenas with their original padding before changing padding and capturing new templates.
 
-A saved template is restored before each round and after the match. A durable dirty marker is written before using it. After restart, dirty arenas are reset before reuse; failed resets keep the arena locked. `/fd arena reset <id>` retries recovery. Changing arena padding invalidates templates for new matches; resolve dirty arenas with the original padding first, then change it and save fresh templates. Capture/reset runs on the server thread, so keep snapshot volumes modest.
+## Menu and dialog customization
 
-## Menu customization and maps
+Edit `menu.yml`, then `/frostmenu reload`. The page order is `menus.navigation.page-order: [mctiers-io, subtiers]`. Category `title` fields control page headings. `menus.navigation.*` controls page/kit arrows and Confirm; reserve default slots 36/38/40/42/44. Kit icon slots can use 10–16 and 19–25. Icon clicks only highlight; arrows provide selection without clicking the kits themselves.
 
-Edit `plugins/FrostMenu/config.yml` and run `/frostmenu reload`:
+The gray background is configured under `menus.filler`. Dialog headings/body/buttons, width, round range, optional Close button, and sprite paths are under `dialog`. Default widths are 300 pixels, with native sword, lime dye, book, and map sprites from the Minecraft 1.21.11 item atlas. Text supports `&` colors. Placeholders: `%player%`, `%target%`, `%category%`, `%gamemode%`, `%gamemode-name%` (without formatting), `%kit%`, `%rounds%`, `%map%`, `%map-name%`, `%kit-icon%`, `%rounds-icon%`, `%advanced-icon%`, and `%map-icon%`.
 
-| Setting | Controls |
-| --- | --- |
-| `messages.*` | Usage, permissions, errors, reload and dispatch text |
-| `menus.categories.title` | Category menu heading |
-| `categories.<id>.title` | Kit page heading |
-| `menus.navigation.*` | Enable page navigation; set arrow/Confirm items, labels, lore and slots |
-| `menus.filler.*` | Enable and choose the glass-pane background |
-| Item `display-name`, `lore`, `material`, `slot` | Category/gamemode/back button appearance |
-| `dialog.title`, `dialog.body` | Confirmation dialog heading and text |
-| `dialog.buttons.*` | Dialog button labels |
-| `dialog.rounds.*` | Rounds slider label, range and starting value |
-| `dialog.button-width`, `dialog.slider-width`, `dialog.body-width` | Independent native widths (default 300 pixels) |
-| `dialog.show-close-button` | Show/hide the confirmation Close button; Escape still closes it |
-| `dialog.icons.*` | Native atlas and sprite keys for sword, dye, book, and map icons |
-| `dialog.advanced.title`, `dialog.advanced.body` | Advanced information page |
-| `dialog.map-title`, `maps` | Map selector heading and selectable arena IDs |
-| `integration.duel-command` | Integration command template |
-
-All text supports `&` color codes. Menu placeholders: `%player%`, `%target%`, `%category%`, `%gamemode%`, `%gamemode-name%` (without formatting codes), `%kit%`, `%rounds%`, `%map%`, `%map-name%`. Each gamemode can optionally set `dialog-name` separately from its inventory `display-name`. `%kit-icon%`, `%rounds-icon%`, `%advanced-icon%`, and `%map-icon%` insert native item sprites; the defaults use the Minecraft 1.21.11 `minecraft:items` atlas. Command templates support `%player%`, `%target%`, `%kit%`, `%rounds%`, `%map%`. FrostDuels messages are separately editable under its own `messages` section, including accept/deny buttons. Keep the menu's maximum rounds within FrostDuels' `max-rounds`.
-
-To add a specific arena to the dialog's Map Selector:
-
-```yaml
-maps:
-  random: '&6Random'
-  arena1: '&aArena One'
-```
-
-To add a kit item, merge an entry into an existing category's `gamemodes` section:
+Add a kit item inside a category's `gamemodes` section:
 
 ```yaml
 CustomSword:
   material: DIAMOND_SWORD
   display-name: '&bCustom Sword'
-  lore: ['&7Choose this kit']
-  slot: 28
+  dialog-name: '&aCustom Sword'
+  lore: ['&7Use the arrows, then Confirm']
+  slot: 19
   kit: MySavedSwordKit
 ```
 
-Use `/fd kit save MySavedSwordKit` to actually create that kit. Slots start at zero and must be unique; reserve 36/38/40/42/44 for the default navigation controls. Set `menus.navigation.enabled: false` to restore the legacy category picker and immediate kit-click dialog; that mode uses the old back button at slot 44. The Advanced Options button is an editable information page; gameplay settings are administrator configuration, not player-selectable rule overrides. The dialog follows the reference screenshot's single-column structure, with real item sprites and matching button/slider widths; exact placement and screen scaling are controlled by Minecraft. No resource pack is required.
+Create that loadout with `/frostmenu kit save MySavedSwordKit`. Advanced Options is editable information; gameplay rule overrides are admin configuration rather than player controls. Exact native dialog placement depends on the Minecraft client and GUI scale. No resource pack is required.
 
-## Persistence and match behavior
+## Recovery and development checks
 
-Challenges expire and have a configurable sender cooldown. Requests are revalidated on acceptance, and only one match can reserve an arena. Leaving or disconnecting forfeits; a timeout, administrative stop, or clean shutdown aborts the match. Between rounds, dead players use the normal Minecraft respawn screen; the next countdown begins once both players have respawned. A player who does not respawn before the configured round time limit causes an abort.
+Inventory and player state are saved before kits are equipped. A finish, forfeit, or shutdown restores them and returns players to the lobby; offline/dead players restore on join/respawn. Failed restores retain recovery files and prevent another match. An admin can retry `/frostmenu recover <player>`. Do not delete recovery files or dirty markers to bypass errors. Requests and scores are not resumed after restart.
 
-Before equipping kits, inventory and player state are atomically saved under `plugins/FrostDuels/recovery/`. Match completion restores them and returns players to the lobby. Offline/dead players recover on join/respawn. If teleport or restore fails, the recovery file remains and `/fd recover` retries; pending players cannot start another match. Commands are restricted to leave/recover during a match, containers cannot be opened, drops are blocked, and tagged match drops/XP cannot be picked up by outsiders. Do not delete recovery files to resolve errors; fix the underlying destination or file error and retry recovery.
+Build with JDK 21 and Maven 3.9+: `bash build-all.sh clean` (or `mvn clean verify`). The output is `target/FrostDuels-2.0.0.jar`. Tests cover the combined menu-to-engine handoff, permissions, admin command visibility, guarded chat buttons, map discovery, kit/arena setup, rounds, recovery, rule enforcement, and non-destructive menu migration.
 
-Kit and arena definitions are stored in `plugins/FrostDuels/data.yml`. Use commands for inventory saves and arena edits. Back up this data along with the world's normal backups. Online match scores and requests are not resumed across restarts.
-
-## Validation
-
-`bash build-all.sh` compiles both plugins against Paper 1.21.11 and runs the automated suites. Tests exercise menus, request acceptance/expiry, first-to-N scoring, duplicate event protection, arena reservation, forfeit and shutdown recovery, persistent kit/player data, per-kit saturation/regeneration, build/mine height event limits, explosion containment, and missing-template locks.
-
-MockBukkit cannot render native dialogs or capture/place native structure templates. **In-game client rendering and native terrain restoration have not been validated by these tests.** Before regular use, test two players in a copied arena: verify confirmation and acceptance; multiple rounds and respawns; actual block/container restoration after building/mining/explosions; per-kit healing rules; quit/rejoin and server restart recovery. Full power-loss/filesystem durability is not simulated by the automated suite.
+MockBukkit cannot render native dialogs or capture/place native structure templates. Client rendering and actual terrain restoration still need two-player in-game validation in a copied arena. Full power-loss/filesystem durability is not simulated by these tests.

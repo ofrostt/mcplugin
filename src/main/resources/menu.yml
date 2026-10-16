@@ -1,0 +1,215 @@
+# FrostDuels menu settings — Paper 1.21.11 / Java 21
+# Text supports & color codes (including &l bold). No resource pack is required.
+# Text placeholders: %player%, %target%, %gamemode%, %kit%, %rounds%, %map%, %map-name%.
+# Use exact FrostDuels kit IDs. Create kits and arenas with /frostmenu (administrators only).
+# Map IDs are FrostDuels arena IDs; random selects a free arena.
+# Advanced Options is a configurable information page. Edit gameplay rules in FrostDuels/config.yml.
+# Slots are zero-based. Category and gamemode slots must be unique within each menu.
+# Reload menu and gameplay config together with /frostmenu reload.
+
+session-timeout-seconds: 300
+messages:
+  usage: '&bFrostDuels &8» &7/duel <player>'
+  players-only: '&cOnly players can open the duel menu.'
+  no-permission: '&cYou do not have permission to do that.'
+  player-not-found: '&cThat player is offline or unavailable.'
+  self-duel: '&cYou cannot duel yourself.'
+  expired: '&cThis menu has expired. Open /duel <player> again.'
+  invalid-response: '&cChoose a valid whole number of rounds.'
+  request-failed: '&cCould not send the duel request. Ask an administrator to check the console.'
+menus:
+  # Open kit pages directly. Page arrows change groups; kit arrows change the highlight.
+  # Confirm opens the dialog. Clicking an icon only highlights it.
+  navigation:
+    enabled: true
+    # Category IDs to show, in arrow-navigation order. Add custom category IDs here.
+    page-order: [mctiers-io, subtiers]
+    selected-lore: '&aSelected — press Confirm below'
+    previous-page:
+      material: ARROW
+      display-name: '&ePrevious Kit Page'
+      lore: ['&7Show the previous group of kits']
+      slot: 36
+    next-page:
+      material: ARROW
+      display-name: '&eNext Kit Page'
+      lore: ['&7Show the next group of kits']
+      slot: 44
+    previous-kit:
+      material: ARROW
+      display-name: '&ePrevious Kit'
+      lore: ['&7Move the highlight to the previous kit']
+      slot: 38
+    next-kit:
+      material: ARROW
+      display-name: '&eNext Kit'
+      lore: ['&7Move the highlight to the next kit']
+      slot: 42
+    confirm:
+      material: LIME_DYE
+      display-name: '&aConfirm: %gamemode-name%'
+      lore: ['&7Open the duel confirmation dialog']
+      slot: 40
+  filler:
+    enabled: true
+    material: GRAY_STAINED_GLASS_PANE
+  categories:
+    title: '&bSelect Kit Category'
+    rows: 3
+  back:
+    material: ARROW
+    display-name: '&eGo Back'
+    lore:
+    - '&7Return to category selection'
+    slot: 44
+dialog:
+  width: 300
+  button-width: 300
+  slider-width: 300
+  body-width: 300
+  # Escape still closes the dialog when this is false.
+  show-close-button: false
+  title: '&6Confirm Duel!'
+  body:
+  - '&e%player% &7vs &e%target%'
+  - '&7Kit: %kit-icon% &a&l%gamemode-name%'
+  # Native item atlas sprites, not emoji characters. All icon paths are editable.
+  icons:
+    kit:
+      atlas: minecraft:items
+      sprite: minecraft:item/diamond_sword
+    rounds:
+      atlas: minecraft:items
+      sprite: minecraft:item/lime_dye
+    advanced:
+      atlas: minecraft:items
+      sprite: minecraft:item/book
+    map:
+      atlas: minecraft:items
+      sprite: minecraft:item/map
+  rounds:
+    min: 1
+    max: 20
+    default: 1
+    label: '%rounds-icon% &fRounds'
+  buttons:
+    advanced: '%advanced-icon% &fView Advanced Options'
+    map: '%map-icon% &fMap Selector &6(%map-name%&6)'
+    send: '%rounds-icon% &fSend Duel'
+    close: '&c✕ Close'
+    back: '&e← Back'
+    apply: '&aApply'
+  map-title: '&6Select Map'
+  advanced:
+    title: '&6Advanced Options'
+    body:
+    - '&7Opponent: &e%target%'
+    - '&7Kit ID: &a%kit%'
+    - '&7First to &e%rounds% &7wins.'
+    - '&7Map: &e%map-name%'
+    - '&7Arenas, kits, and match rules are managed by FrostDuels.'
+maps:
+  random: '&6Random'
+categories:
+  mctiers-io:
+    material: RED_DYE
+    display-name: '&amctiers.io'
+    lore:
+    - '&7Kits from mctiers.io'
+    slot: 11
+    title: '&8Queue: mctiers.io'
+    rows: 5
+    gamemodes:
+      Sword:
+        material: DIAMOND_SWORD
+        display-name: '&aSword'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 10
+        kit: Sword-IO
+      UHC:
+        material: GOLDEN_APPLE
+        display-name: '&aUHC'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 11
+        kit: UHC-IO
+      Axe:
+        material: DIAMOND_AXE
+        display-name: '&aAxe'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 12
+        kit: Axe-IO
+      SMP:
+        material: ENDER_PEARL
+        display-name: '&aSMP'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 13
+        kit: SMP-IO
+      Elytra-IO:
+        material: ELYTRA
+        display-name: '&aElytra-IO'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 14
+        kit: Elytra-IO
+      NetheritePot:
+        material: NETHERITE_HELMET
+        display-name: '&aNetheritePot'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 15
+        kit: NetheritePot-IO
+      Potion:
+        material: POTION
+        display-name: '&aPotion'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 16
+        kit: Potion-IO
+  subtiers:
+    material: YELLOW_DYE
+    display-name: '&aSubtiers Kits'
+    lore:
+    - '&7Kits from subtiers.net'
+    slot: 15
+    title: '&8Queue: Subtiers'
+    rows: 5
+    gamemodes:
+      Diamond-SMP:
+        material: CHORUS_FRUIT
+        display-name: '&aDiamond-SMP'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 10
+        kit: Diamond-SMP
+      Trident:
+        material: TRIDENT
+        display-name: '&aTrident'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 11
+        kit: Trident
+      Manhunt:
+        material: ENDER_PEARL
+        display-name: '&aManhunt'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 12
+        kit: Manhunt
+      Bow:
+        material: BOW
+        display-name: '&aBow'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 13
+        kit: Bow
+      Creeper:
+        material: CREEPER_SPAWN_EGG
+        display-name: '&aCreeper'
+        lore:
+        - '&7Use the arrows below, then Confirm'
+        slot: 14
+        kit: Creeper

@@ -10,58 +10,18 @@ final class DuelCommands implements CommandExecutor, TabCompleter {
     DuelCommands(FrostDuels plugin) { this.plugin = plugin; }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
-            plugin.tell(sender, "help"); if (sender.hasPermission("frostduels.admin")) plugin.tell(sender, "admin-help"); return true;
-        }
+        if (!sender.hasPermission("frostduels.admin")) { plugin.tell(sender, "no-permission"); return true; }
+        if (args.length == 0 || args[0].equalsIgnoreCase("help")) { plugin.tell(sender, "admin-help"); return true; }
         String action = args[0].toLowerCase(Locale.ROOT);
-        boolean admin = Set.of("kit", "arena", "setlobby", "reload", "stop").contains(action);
-        if (!sender.hasPermission(admin ? "frostduels.admin" : "frostduels.use")) { plugin.tell(sender, "no-permission"); return true; }
-        if (sender instanceof Player player && (plugin.playing.containsKey(player.getUniqueId()) || plugin.recovering(player))
-                && !action.equals("leave") && !action.equals("recover") && !action.equals("stop")) {
+        if (sender instanceof Player player && plugin.playing.containsKey(player.getUniqueId()) && !action.equals("stop")) {
             plugin.tell(player, "command-blocked"); return true;
         }
         try {
-            if (admin) admin(sender, action, args);
-            else if (sender instanceof Player player) player(player, action, args);
-            else plugin.tell(sender, "players-only");
+            admin(sender, action, args);
         } catch (NumberFormatException ex) { plugin.tell(sender, "invalid-rounds", Map.of("max", "" + plugin.settings.maxRounds)); }
         catch (IllegalArgumentException ex) { plugin.tell(sender, "bad-arguments"); }
         catch (Exception ex) { plugin.log(ex); plugin.tell(sender, "io-error"); }
         return true;
-    }
-
-    private void player(Player player, String action, String[] args) {
-        switch (action) {
-            case "duel" -> {
-                if (args.length < 3 || args.length > 5) { plugin.tell(player, "bad-arguments"); return; }
-                Player target = Bukkit.getPlayerExact(args[1]);
-                if (target == null || !player.canSee(target)) { plugin.tell(player, "not-found"); return; }
-                int rounds = args.length >= 4 ? Integer.parseInt(args[3]) : 1;
-                String map = args.length == 5 ? args[4] : "random";
-                plugin.request(player, target, args[2], rounds, map);
-            }
-            case "accept", "deny" -> {
-                if (args.length != 2) { plugin.tell(player, "bad-arguments"); return; }
-                Player challenger = Bukkit.getPlayerExact(args[1]);
-                if (challenger == null || !player.canSee(challenger)) { plugin.tell(player, "expired"); return; }
-                if (action.equals("accept")) plugin.accept(player, challenger);
-                else {
-                    var request = plugin.requests.remove(new FrostDuels.RequestKey(challenger.getUniqueId(), player.getUniqueId()));
-                    if (request == null || request.expires() <= System.currentTimeMillis()) { plugin.tell(player, "expired"); return; }
-                    plugin.tell(player, "denied"); plugin.tell(challenger, "denied-sender", Map.of("player", player.getName()));
-                }
-            }
-            case "leave" -> {
-                if (args.length != 1) { plugin.tell(player, "bad-arguments"); return; }
-                if (plugin.recovering(player)) plugin.recover(player, true); else plugin.leave(player, true);
-            }
-            case "recover" -> {
-                if (args.length != 1) { plugin.tell(player, "bad-arguments"); return; }
-                if (plugin.playing.containsKey(player.getUniqueId())) { plugin.tell(player, "unavailable"); return; }
-                plugin.recover(player, true);
-            }
-            default -> plugin.tell(player, "bad-arguments");
-        }
     }
 
     private void admin(CommandSender sender, String action, String[] args) throws Exception {
@@ -71,8 +31,17 @@ final class DuelCommands implements CommandExecutor, TabCompleter {
                 if (!plugin.playing.isEmpty()) { plugin.tell(sender, "reload-busy"); return; }
                 try {
                     DuelConfig fresh = plugin.readSettings(); plugin.validateArenas(fresh);
-                    plugin.settings = fresh; plugin.requests.clear(); plugin.tell(sender, "reloaded");
+                    Runnable menuReload = plugin.prepareMenuReload();
+                    menuReload.run();
+                    plugin.settings = fresh; plugin.updateAdminPermissionMessage(); plugin.requests.clear(); plugin.tell(sender, "reloaded");
                 } catch (Exception ex) { plugin.log(ex); plugin.tell(sender, "config-error"); }
+            }
+            case "recover" -> {
+                if (args.length != 2) { plugin.tell(sender, "bad-arguments"); return; }
+                Player player = Bukkit.getPlayerExact(args[1]);
+                if (player == null) plugin.tell(sender, "not-found");
+                else if (plugin.playing.containsKey(player.getUniqueId())) plugin.tell(sender, "unavailable");
+                else plugin.recover(player, true);
             }
             case "stop" -> {
                 if (args.length != 2) { plugin.tell(sender, "bad-arguments"); return; }
@@ -158,23 +127,19 @@ final class DuelCommands implements CommandExecutor, TabCompleter {
     }
 
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.hasPermission("frostduels.use") && !sender.hasPermission("frostduels.admin")) return List.of();
+        if (!sender.hasPermission("frostduels.admin")) return List.of();
         List<String> options = new ArrayList<>();
         if (args.length == 1) {
-            if (sender.hasPermission("frostduels.use")) options.addAll(List.of("help", "duel", "accept", "deny", "leave", "recover"));
-            if (sender.hasPermission("frostduels.admin")) options.addAll(List.of("kit", "arena", "setlobby", "stop", "reload"));
-        } else if (args.length == 2 && Set.of("duel", "accept", "deny", "stop").contains(args[0])) {
+            options.addAll(List.of("help", "kit", "arena", "setlobby", "stop", "recover", "reload"));
+        } else if (args.length == 2 && Set.of("stop", "recover").contains(args[0])) {
             for (Player player : Bukkit.getOnlinePlayers()) if (!(sender instanceof Player viewer) || viewer.canSee(player)) options.add(player.getName());
         } else if (args.length == 2 && sender.hasPermission("frostduels.admin")) {
             if (args[0].equals("kit")) options.addAll(List.of("save", "load", "delete", "list"));
             if (args[0].equals("arena")) options.addAll(List.of("create", "delete", "list", "setspawn", "snapshot", "reset"));
         } else if (args.length == 3) {
-            if (args[0].equals("duel")) options.addAll(plugin.store.ids("kits"));
             if (args[0].equals("kit") && sender.hasPermission("frostduels.admin")) options.addAll(plugin.store.ids("kits"));
             if (args[0].equals("arena") && sender.hasPermission("frostduels.admin")) options.addAll(plugin.store.ids("arenas"));
         } else if (args.length == 4 && args[0].equals("arena") && args[1].equals("setspawn") && sender.hasPermission("frostduels.admin")) options.addAll(List.of("1", "2"));
-        else if (args.length == 4 && args[0].equals("duel")) options.addAll(List.of("1", "3", "5"));
-        else if (args.length == 5 && args[0].equals("duel")) { options.add("random"); options.addAll(plugin.store.ids("arenas")); }
         return options.stream().filter(value -> value.toLowerCase(Locale.ROOT).startsWith(args[args.length - 1].toLowerCase(Locale.ROOT))).sorted().toList();
     }
 }

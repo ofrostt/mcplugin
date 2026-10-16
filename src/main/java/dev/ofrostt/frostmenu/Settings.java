@@ -11,7 +11,7 @@ import net.kyori.adventure.text.Component;
 
 final class Settings {
     record Icon(Material material, String name, List<String> lore, int slot) {}
-    record Mode(String id, Icon icon, String kit, String command, String dialogName) {}
+    record Mode(String id, Icon icon, String kit, String dialogName) {}
     record Category(String id, Icon icon, String title, int rows, List<Mode> modes) {}
     record Arena(String id, String label) {}
 
@@ -29,7 +29,7 @@ final class Settings {
     Settings(File file) throws Exception {
         yaml = new YamlConfiguration();
         yaml.load(file); // Unlike loadConfiguration(), parse failures must abort reload.
-        try (var input = Objects.requireNonNull(Settings.class.getResourceAsStream("/config.yml"))) {
+        try (var input = Objects.requireNonNull(Settings.class.getResourceAsStream("/menu.yml"))) {
             yaml.setDefaults(YamlConfiguration.loadConfiguration(new InputStreamReader(input, StandardCharsets.UTF_8)));
         }
         categoryRows = integer("menus.categories.rows", 1, 6);
@@ -61,11 +61,10 @@ final class Settings {
                 "dialog.buttons.advanced", "dialog.buttons.map", "dialog.buttons.send", "dialog.buttons.close",
                 "dialog.buttons.back", "dialog.buttons.apply", "dialog.advanced.title", "dialog.map-title",
                 "messages.usage", "messages.players-only", "messages.no-permission", "messages.player-not-found",
-                "messages.self-duel", "messages.reloaded", "messages.reload-failed", "messages.expired",
-                "messages.invalid-response", "messages.command-unavailable", "messages.command-failed", "messages.dispatched")) text(path);
+                "messages.self-duel", "messages.expired",
+                "messages.invalid-response", "messages.request-failed")) text(path);
         if (yaml.getStringList("dialog.body").isEmpty()) fail("dialog.body must contain text");
         if (yaml.getStringList("dialog.advanced.body").isEmpty()) fail("dialog.advanced.body must contain text");
-        String baseCommand = DuelRules.command(text("integration.duel-command"));
         Set<Integer> categorySlots = new HashSet<>();
         List<Category> parsed = new ArrayList<>();
         ConfigurationSection cats = section("categories");
@@ -89,11 +88,7 @@ final class Settings {
                 ConfigurationSection mode = Objects.requireNonNull(modes.getConfigurationSection(modeId));
                 Icon item = icon(mode, rows * 9);
                 if (!slots.add(item.slot())) fail("Duplicate gamemode/back slot in " + id);
-                String command = DuelRules.command(mode.getString("command", baseCommand));
-                if (!command.contains("%target%") || !command.contains("%kit%") || !command.contains("%rounds%")) {
-                    fail("Duel commands must contain %target%, %kit%, and %rounds%");
-                }
-                parsedModes.add(new Mode(modeId, item, DuelRules.token(required(mode, "kit")), command,
+                parsedModes.add(new Mode(modeId, item, DuelRules.token(required(mode, "kit")),
                         mode.getString("dialog-name", item.name())));
             }
             parsed.add(new Category(id, icon, title, rows, List.copyOf(parsedModes)));
@@ -112,11 +107,7 @@ final class Settings {
         for (String id : mapSection.getKeys(false)) maps.add(new Arena(DuelRules.token(id), required(mapSection, id)));
         if (maps.isEmpty()) fail("At least one map is required");
         arenas = List.copyOf(maps);
-        if (maps.size() > 1) {
-            for (Category cat : categories) for (Mode mode : cat.modes()) {
-                if (!mode.command().contains("%map%")) fail("Multiple maps require %map% in every duel command; consult Cloud documentation");
-            }
-        }
+
     }
 
     String text(String path) { return required(yaml, path); }

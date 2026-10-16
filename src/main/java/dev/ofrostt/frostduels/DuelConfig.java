@@ -9,6 +9,9 @@ final class DuelConfig {
     final boolean protectLobby;
     DuelConfig(File file) throws Exception {
         yaml = new YamlConfiguration(); yaml.load(file);
+        try (var input = java.util.Objects.requireNonNull(DuelConfig.class.getResourceAsStream("/config.yml"))) {
+            yaml.setDefaults(YamlConfiguration.loadConfiguration(new java.io.InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8)));
+        }
         expiry = integer("request-expiry-seconds", 5, 600);
         cooldown = integer("request-cooldown-seconds", 0, 60);
         countdown = integer("countdown-seconds", 1, 30);
@@ -37,6 +40,7 @@ final class DuelConfig {
     String text(String key) {
         String value = yaml.getString("messages." + key);
         if (value == null) throw new IllegalArgumentException("Missing message: " + key);
+        if (key.equals("command-blocked") && value.equals("&cYou can only use /frostduels leave during a duel.")) return "&cUse the Leave Duel button to forfeit.";
         return value;
     }
 }

@@ -22,9 +22,9 @@ import org.bukkit.event.*;
 import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.*;
-import org.bukkit.plugin.java.JavaPlugin;
+import dev.ofrostt.frostduels.FrostDuels;
 
-public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
+public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, TabCompleter {
     private final Map<UUID, Session> sessions = new HashMap<>();
     private final LegacyComponentSerializer colors = LegacyComponentSerializer.legacyAmpersand();
     private Settings settings;
@@ -42,7 +42,7 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
         Session(Player player, Player target, Settings settings) {
             owner = player.getUniqueId(); this.target = target.getUniqueId(); targetName = target.getName();
             expires = System.currentTimeMillis() + settings.timeout * 1000L;
-            rounds = settings.defaultRounds; map = settings.arenas.getFirst().id();
+            rounds = settings.defaultRounds; map = "random";
         }
     }
 
@@ -56,14 +56,21 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
     }
 
     @Override public void onEnable() {
-        saveDefaultConfig();
-        try { settings = new Settings(new File(getDataFolder(), "config.yml")); }
-        catch (Exception ex) {
-            getLogger().severe("Invalid config.yml: " + ex.getMessage());
+        super.onEnable();
+        if (!isEnabled()) return;
+        try {
+            File menu = new File(getDataFolder(), "menu.yml");
+            MenuMigration.copyLegacy(getDataFolder().toPath());
+            if (!menu.exists()) {
+                saveResource("menu.yml", false);
+            }
+            settings = new Settings(menu);
+        } catch (Exception ex) {
+            getLogger().severe("Invalid menu.yml: " + ex.getMessage());
             getServer().getPluginManager().disablePlugin(this); return;
         }
-        Objects.requireNonNull(getCommand("frostmenu")).setExecutor(this);
-        getCommand("frostmenu").setTabCompleter(this);
+        Objects.requireNonNull(getCommand("duel")).setExecutor(this);
+        getCommand("duel").setTabCompleter(this);
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getScheduler().runTaskTimer(this, () -> sessions.entrySet().removeIf(e -> e.getValue().expires < System.currentTimeMillis()), 200, 200);
     }
@@ -75,32 +82,29 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
             if (sessions.containsKey(player.getUniqueId())) player.closeDialog();
         }
         sessions.clear();
+        super.onDisable();
+    }
+
+    @Override protected Runnable prepareMenuReload() throws Exception {
+        Settings fresh = new Settings(new File(getDataFolder(), "menu.yml"));
+        return () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                Inventory top = player.getOpenInventory().getTopInventory();
+                if (top != null && top.getHolder() instanceof Menu) player.closeInventory();
+                if (sessions.containsKey(player.getUniqueId())) player.closeDialog();
+            }
+            sessions.clear(); settings = fresh;
+        };
     }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
-            if (!sender.hasPermission("frostmenu.reload")) { message(sender, "no-permission", Map.of()); return true; }
-            try {
-                Settings fresh = new Settings(new File(getDataFolder(), "config.yml"));
-                for (Player player : Bukkit.getOnlinePlayers()) {
-                    Inventory top = player.getOpenInventory().getTopInventory();
-                    if (top != null && top.getHolder() instanceof Menu) player.closeInventory();
-                    if (sessions.containsKey(player.getUniqueId())) player.closeDialog();
-                }
-                sessions.clear(); settings = fresh;
-                message(sender, "reloaded", Map.of());
-            } catch (Exception ex) {
-                getLogger().warning("Configuration reload rejected: " + ex.getMessage());
-                message(sender, "reload-failed", Map.of());
-            }
-            return true;
-        }
         if (!(sender instanceof Player player)) { message(sender, "players-only", Map.of()); return true; }
-        if (!player.hasPermission("frostmenu.use")) { message(player, "no-permission", Map.of()); return true; }
+        if (!player.hasPermission("frostduels.use")) { message(player, "no-permission", Map.of()); return true; }
         if (args.length != 1) { message(player, "usage", Map.of()); return true; }
         Player target = Bukkit.getPlayerExact(args[0]);
         if (target == null || !player.canSee(target)) { message(player, "player-not-found", Map.of()); return true; }
         if (target.equals(player)) { message(player, "self-duel", Map.of()); return true; }
+        if (!available(player)) { tell(player, "unavailable"); return true; }
         player.closeDialog();
         Session session = new Session(player, target, settings);
         sessions.put(player.getUniqueId(), session);
@@ -262,9 +266,9 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
     private void maps(Player player, Session session) {
         long view = ++session.view;
         List<ActionButton> buttons = new ArrayList<>();
-        for (Settings.Arena arena : settings.arenas) {
-            buttons.add(ActionButton.create(render(arena.label(), player, session), null, settings.buttonWidth,
-                    callback(player, session, view, response -> { session.map = arena.id(); confirm(player, session); })));
+        for (var arena : availableMaps().entrySet()) {
+            buttons.add(ActionButton.create(render(arena.getValue(), player, session), null, settings.buttonWidth,
+                    callback(player, session, view, response -> { session.map = arena.getKey(); confirm(player, session); })));
         }
         show(player, settings.text("dialog.map-title"), session, List.of(), List.of(), buttons,
                 button("back", player, session, view, response -> confirm(player, session)));
@@ -303,18 +307,22 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
         }
     }
 
-    private void send(Player player, Session session) {
+    protected void send(Player player, Session session) {
         if (!valid(player, session)) return;
-        String command = DuelRules.expand(session.mode.command(), values(player, session));
-        String root = command.split(" ", 2)[0];
-        Command registered = Bukkit.getCommandMap().getCommand(root);
-        if (registered == null || registered == getCommand("frostmenu")) {
-            sessions.remove(player.getUniqueId(), session);
-            message(player, "command-unavailable", values(player, session)); return;
-        }
-        sessions.remove(player.getUniqueId(), session); // Consume before dispatch, including if Cloud rejects the request.
-        if (Bukkit.dispatchCommand(player, command)) message(player, "dispatched", values(player, session));
-        else message(player, "command-failed", values(player, session));
+        Player target = Bukkit.getPlayer(session.target);
+        sessions.remove(player.getUniqueId(), session);
+        if (target == null) { message(player, "player-not-found", Map.of()); return; }
+        try { request(player, target, session.mode.kit(), session.rounds, session.map); }
+        catch (Exception ex) { getLogger().severe("Duel request failed: " + ex.getMessage()); message(player, "request-failed", Map.of()); }
+    }
+
+    protected Map<String, String> availableMaps() {
+        Map<String, String> configured = new LinkedHashMap<>();
+        for (Settings.Arena arena : settings.arenas) configured.put(arena.id(), arena.label());
+        Map<String, String> result = new LinkedHashMap<>();
+        result.put("random", configured.getOrDefault("random", "&6Random"));
+        for (String id : selectableArenas()) result.put(id, configured.getOrDefault(id, id));
+        return result;
     }
 
     private boolean valid(Player player, Session session) {
@@ -323,7 +331,7 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
             if (player.isOnline()) message(player, "expired", Map.of());
             return false;
         }
-        if (!player.hasPermission("frostmenu.use")) {
+        if (!player.hasPermission("frostduels.use")) {
             sessions.remove(player.getUniqueId(), session); message(player, "no-permission", Map.of()); return false;
         }
         Player target = Bukkit.getPlayer(session.target);
@@ -334,7 +342,7 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
     }
 
     private Map<String, String> values(Player player, Session session) {
-        String mapLabel = settings.arenas.stream().filter(arena -> arena.id().equals(session.map)).findFirst().orElseThrow().label();
+        String mapLabel = settings.arenas.stream().filter(arena -> arena.id().equals(session.map)).findFirst().map(Settings.Arena::label).orElse(session.map);
         return Map.of("player", player.getName(), "target", session.targetName,
                 "kit", session.mode == null ? "" : session.mode.kit(),
                 "gamemode", session.mode == null ? "" : session.mode.dialogName(),
@@ -358,21 +366,22 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
             case "&a♟ &fSend Duel" -> "%rounds-icon% &fSend Duel";
             case "&7Kit: &a%gamemode%" -> "&7Kit: %kit-icon% &a&l%gamemode-name%";
             case "&6Confirm Duel! ⚠" -> "&6Confirm Duel!";
+            case "&bFrostMenu &8» &7/frostmenu <player> or /frostmenu reload" -> "&bFrostDuels &8» &7/duel <player>";
+            case "&cThis menu has expired. Open /frostmenu <player> again." -> "&cThis menu has expired. Open /duel <player> again.";
             default -> text;
         };
     }
 
     private void message(CommandSender sender, String key, Map<String, String> values) {
-        sender.sendMessage(colors.deserialize(DuelRules.expand(settings.text("messages." + key), values)));
+        sender.sendMessage(colors.deserialize(DuelRules.expand(modernize(settings.text("messages." + key)), values)));
     }
 
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         if (args.length != 1) return List.of();
         List<String> names = new ArrayList<>();
-        if (sender.hasPermission("frostmenu.use") && sender instanceof Player viewer) {
+        if (sender.hasPermission("frostduels.use") && sender instanceof Player viewer) {
             for (Player target : Bukkit.getOnlinePlayers()) if (!target.equals(viewer) && viewer.canSee(target)) names.add(target.getName());
         }
-        if (sender.hasPermission("frostmenu.reload")) names.add("reload");
         return names.stream().filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT))).sorted().toList();
     }
 }

@@ -1,17 +1,21 @@
-name: FrostMenu
-version: 1.2.1
+name: FrostDuels
+version: 2.0.0
 main: dev.ofrostt.frostmenu.FrostMenu
 api-version: '1.21.11'
-description: Configurable kit menus and native duel confirmation dialogs for Paper.
+description: Unified kit menus, native dialogs, and dedicated-server duels.
 commands:
+  duel:
+    description: Challenge a player using the kit selection menu.
+    usage: /duel <player>
   frostmenu:
-    description: Open the duel menu or reload its configuration.
-    usage: /frostmenu <player> | /frostmenu reload
-    aliases: [duel]
+    description: Administrator kit, arena, and configuration management.
+    usage: /frostmenu help
+    aliases: [frostduels, fd]
+    permission: frostduels.admin
 permissions:
-  frostmenu.use:
+  frostduels.use:
     default: true
-    description: Open FrostMenu and send duel challenges.
-  frostmenu.reload:
+    description: Open /duel and respond to challenges using buttons.
+  frostduels.admin:
     default: op
-    description: Reload FrostMenu configuration.
+    description: Use /frostmenu and its administrator-only aliases.

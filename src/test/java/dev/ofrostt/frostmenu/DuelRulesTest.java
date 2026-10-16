@@ -13,18 +13,11 @@ class DuelRulesTest {
         }
     }
 
-    @Test void commandTemplatesKeepCloudNamespaceAndExpandExactKitIds() {
-        String template = DuelRules.command("/cloud:duel %target% %kit% %rounds%");
-        assertEquals("cloud:duel Opponent Sword-IO 3", DuelRules.expand(template,
+    @Test void textPlaceholdersKeepExactKitIds() {
+        String template = "Kit %kit% for %target%, rounds %rounds%";
+        assertEquals("Kit Sword-IO for Opponent, rounds 3", DuelRules.expand(template,
                 Map.of("target", "Opponent", "kit", "Sword-IO", "rounds", "3")));
         assertEquals("Elytra-IO", DuelRules.token("Elytra-IO"));
-    }
-
-    @Test void rejectRecursiveMultilineAndUnknownCommandTemplates() {
-        for (String template : new String[]{"duel %target%", "frostmenu %target%", "frostmenu:frostmenu %target%",
-                "frostmenu:duel %target%", "cloud:duel %target%\nop me", "cloud:duel %unknown%", ""}) {
-            assertThrows(IllegalArgumentException.class, () -> DuelRules.command(template), template);
-        }
     }
 
     @Test void rejectIdentifiersThatCanInjectArguments() {

@@ -14,7 +14,7 @@ class SettingsTest {
     @BeforeEach void setUp() throws Exception {
         MockBukkit.mock();
         file = temp.resolve("config.yml");
-        try (var input = getClass().getResourceAsStream("/config.yml")) {
+        try (var input = getClass().getResourceAsStream("/menu.yml")) {
             Files.copy(input, file);
         }
     }
@@ -40,14 +40,9 @@ class SettingsTest {
         assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
     }
 
-    @Test void extraMapsRequireAnExplicitCloudMapIntegration() throws Exception {
+    @Test void severalMapLabelsAreAllowedWithoutAnyBackendCommand() throws Exception {
         YamlConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
-        config.set("maps.arena1", "&aArena One");
-        config.set("integration.duel-command", "frostduels:frostduels duel %target% %kit% %rounds%");
-        config.save(file.toFile());
-        assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
-        config.set("integration.duel-command", "cloud:duel %target% %kit% %rounds% %map%");
-        config.save(file.toFile());
+        config.set("maps.arena1", "&aArena One"); config.save(file.toFile());
         assertEquals(2, new Settings(file.toFile()).arenas.size());
     }
 
@@ -63,11 +58,7 @@ class SettingsTest {
         assertEquals("&ePick somebody else.", settings.text("messages.self-duel"));
     }
 
-    @Test void invalidYamlAndRecursiveCommandsAreRejected() throws Exception {
-        YamlConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
-        config.set("integration.duel-command", "duel %target% %kit% %rounds%");
-        config.save(file.toFile());
-        assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
+    @Test void invalidYamlIsRejected() throws Exception {
         Files.writeString(file, "dialog: [broken");
         assertThrows(Exception.class, () -> new Settings(file.toFile()));
     }

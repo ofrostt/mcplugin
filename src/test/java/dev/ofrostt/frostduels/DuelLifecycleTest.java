@@ -2,6 +2,9 @@ package dev.ofrostt.frostduels;
 
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.*;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import org.bukkit.event.player.PlayerCommandSendEvent;
 import org.bukkit.*;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -21,7 +24,8 @@ class DuelLifecycleTest {
 
     @BeforeEach void setUp() throws Exception {
         server = MockBukkit.mock(); world = server.addSimpleWorld("duelworld");
-        plugin = MockBukkit.load(FrostDuels.class);
+        plugin = MockBukkit.load(dev.ofrostt.frostmenu.FrostMenu.class);
+        TestClickCallbacks.clear();
         admin = server.addPlayer("Admin"); admin.setOp(true);
         first = server.addPlayer("First"); second = server.addPlayer("Second");
         admin.teleport(new Location(world, 0, 65, 0));
@@ -38,19 +42,20 @@ class DuelLifecycleTest {
     }
     @AfterEach void tearDown() { MockBukkit.unmock(); }
 
-    void challenge() { server.dispatchCommand(first, "fd duel Second Sword-IO 2 arena1"); }
+    void challenge() { plugin.request(first, second, "Sword-IO", 2, "arena1"); }
+    void accept() { plugin.respond(second, plugin.requests.get(new FrostDuels.RequestKey(first.getUniqueId(), second.getUniqueId())), true); }
     FrostDuels.Match start() {
-        challenge(); server.dispatchCommand(second, "fd accept First");
+        challenge(); accept();
         assertEquals(2, plugin.playing.size()); return plugin.playing.get(first.getUniqueId());
     }
 
     @Test void requiresAcceptanceEquipsKitAndForfeitRestoresBothPlayers() {
         challenge(); assertTrue(plugin.playing.isEmpty()); assertEquals(1, plugin.requests.size());
         assertEquals(Material.EMERALD, first.getInventory().getItem(3).getType());
-        server.dispatchCommand(second, "fd accept First");
+        accept();
         assertEquals(2, plugin.playing.size()); assertTrue(plugin.store.pending(first.getUniqueId()));
         assertEquals(Material.DIAMOND_SWORD, first.getInventory().getItem(0).getType());
-        server.dispatchCommand(first, "fd leave");
+        plugin.leave(first, true);
         assertTrue(plugin.playing.isEmpty()); assertFalse(plugin.store.pending(first.getUniqueId()));
         assertFalse(plugin.store.pending(second.getUniqueId()));
         assertEquals(7, first.getInventory().getItem(3).getAmount());
@@ -77,11 +82,11 @@ class DuelLifecycleTest {
         var key = new FrostDuels.RequestKey(first.getUniqueId(), second.getUniqueId());
         var old = plugin.requests.get(key);
         plugin.requests.put(key, new FrostDuels.Request(old.sender(), old.target(), old.kit(), old.rounds(), old.map(), 0));
-        server.dispatchCommand(second, "fd accept First"); assertTrue(plugin.playing.isEmpty());
+        accept(); assertTrue(plugin.playing.isEmpty());
         plugin.cooldowns.clear();
         plugin.settings.yaml.set("kit-rules.Sword-IO.terrain-damage", true);
         plugin.settings.yaml.set("kit-rules.Sword-IO.building", true);
-        challenge(); server.dispatchCommand(second, "fd accept First");
+        challenge(); accept();
         assertTrue(plugin.playing.isEmpty()); assertFalse(plugin.store.pending(first.getUniqueId()));
     }
 
@@ -182,5 +187,65 @@ class DuelLifecycleTest {
         admin.getInventory().clear(); server.dispatchCommand(admin, "fd kit load Sword-IO");
         assertEquals(Material.SHIELD, admin.getInventory().getItemInOffHand().getType());
         assertEquals(Material.SADDLE, admin.getInventory().getItem(42).getType());
+    }
+
+    private Component nextButtons(PlayerMock player) {
+        Component message;
+        while ((message = player.nextComponentMessage()) != null) if (message.clickEvent() != null) return message;
+        fail("Expected a clickable chat message"); return Component.empty();
+    }
+
+    @Test void acceptAndLeaveButtonsValidateOwnerAndRestoreWithoutCommands() {
+        challenge(); var buttons = nextButtons(second);
+        TestClickCallbacks.click(buttons.clickEvent(), admin); server.getScheduler().performOneTick();
+        assertTrue(plugin.playing.isEmpty()); assertEquals(1, plugin.requests.size());
+        TestClickCallbacks.click(buttons.clickEvent(), second); server.getScheduler().performOneTick();
+        assertEquals(2, plugin.playing.size()); assertTrue(plugin.requests.isEmpty());
+        var leave = nextButtons(first);
+        TestClickCallbacks.click(leave.clickEvent(), first); server.getScheduler().performOneTick();
+        assertTrue(plugin.playing.isEmpty()); assertEquals(7, first.getInventory().getItem(3).getAmount());
+    }
+
+    @Test void staleAcceptButtonCannotAcceptAReplacementChallenge() {
+        challenge(); var old = nextButtons(second);
+        plugin.cooldowns.clear(); challenge(); var current = nextButtons(second);
+        TestClickCallbacks.click(old.clickEvent(), second); server.getScheduler().performOneTick();
+        assertTrue(plugin.playing.isEmpty()); assertEquals(1, plugin.requests.size());
+        TestClickCallbacks.click(current.clickEvent(), second); server.getScheduler().performOneTick();
+        assertEquals(2, plugin.playing.size());
+    }
+
+    @Test void normalPlayersOnlyHaveDuelAndCannotUseOrCompleteAdminCommands() {
+        for (String alias : List.of("frostmenu", "frostduels", "fd", "frostduels:frostduels")) {
+            var command = server.getPluginCommand(alias);
+            assertNotNull(command); assertFalse(command.testPermissionSilent(first));
+            assertTrue(command.getTabCompleter().onTabComplete(first, command, alias, new String[]{""}).isEmpty());
+            server.dispatchCommand(first, alias + " duel Second Sword-IO 1");
+            assertTrue(plugin.requests.isEmpty());
+        }
+        Set<String> commands = new HashSet<>(List.of("duel", "frostmenu", "fd", "frostduels", "frostduels:frostmenu"));
+        server.getPluginManager().callEvent(new PlayerCommandSendEvent(first, commands));
+        assertEquals(Set.of("duel"), commands);
+        server.dispatchCommand(first, "duel Second");
+        assertEquals(45, first.getOpenInventory().getTopInventory().getSize());
+    }
+
+    @Test void declineButtonRemovesChallengeWithoutStartingMatch() {
+        challenge(); Component buttons = nextButtons(second);
+        var deny = buttons.children().stream().map(Component::clickEvent).filter(Objects::nonNull).findFirst().orElseThrow();
+        TestClickCallbacks.click(deny, second); server.getScheduler().performOneTick();
+        assertTrue(plugin.requests.isEmpty()); assertTrue(plugin.playing.isEmpty());
+    }
+
+    @Test void reloadRejectsInvalidMenuWithoutPartiallyApplyingGameplayConfig() throws Exception {
+        var menuFile = new java.io.File(plugin.getDataFolder(), "menu.yml");
+        var coreFile = new java.io.File(plugin.getDataFolder(), "config.yml");
+        var menu = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(menuFile);
+        var core = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(coreFile);
+        core.set("countdown-seconds", 10); core.save(coreFile);
+        menu.set("dialog.button-width", 0); menu.save(menuFile);
+        server.dispatchCommand(admin, "frostmenu reload"); assertEquals(3, plugin.settings.countdown);
+        menu.set("dialog.button-width", 300); menu.save(menuFile);
+        server.dispatchCommand(admin, "frostmenu reload"); assertEquals(10, plugin.settings.countdown);
     }
 }

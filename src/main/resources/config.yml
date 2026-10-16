@@ -1,223 +1,96 @@
-# FrostMenu — Paper 1.21.11 / Java 21
-# Text supports & color codes (including &l bold). No resource pack is required.
-# Text placeholders: %player%, %target%, %gamemode%, %kit%, %rounds%, %map%, %map-name%.
-# Command placeholders: %player%, %target%, %kit%, %rounds%, %map%.
-# Commands run AS THE PLAYER, never as console. Keep FrostDuels permissions enabled.
-# Use exact FrostDuels kit IDs. Create kits and arenas with /frostduels.
-# Map IDs are FrostDuels arena IDs; random selects a free arena.
-# Advanced Options is a configurable information page. Edit gameplay rules in FrostDuels/config.yml.
-# Slots are zero-based. Category and gamemode slots must be unique within each menu.
-# Restart after changing command aliases/permissions in plugin.yml; reload config with /frostmenu reload.
-
-session-timeout-seconds: 300
-integration:
-  duel-command: frostduels:frostduels duel %target% %kit% %rounds% %map%
+# Dedicated duel server. Terrain edits need a saved arena snapshot before a match can start.
+# Text uses & color codes. All FrostDuels chat text and request button labels live here.
+# Kits, arenas and lobby are stored separately in data.yml. Never edit recovery/ manually.
+request-expiry-seconds: 60
+request-cooldown-seconds: 3
+countdown-seconds: 3
+round-time-limit-seconds: 600
+max-rounds: 20
+arena-padding-blocks: 16
+protect-lobby: true
+# Rules are global defaults; override any subset per exact kit ID under kit-rules.
+# Y limits are inclusive. Place and break limits are independent of arena snapshot bounds.
+# The arena snapshot must enclose the whole area players can change.
+rules:
+  saturation: true
+  regeneration: true
+  natural-regeneration: true
+  potion-regeneration: true
+  hunger: true
+  starting-food: 20
+  starting-saturation: 20.0
+  terrain-damage: false
+  building: false
+  breaking: false
+  explosion-terrain-damage: false
+  min-break-y: -64
+  max-break-y: 319
+  min-build-y: -64
+  max-build-y: 319
+# Example override (uncomment and use your exact saved kit ID):
+# kit-rules:
+#   UHC-IO:
+#     terrain-damage: true
+#     building: true
+#     breaking: true
+#     natural-regeneration: false
+#     min-break-y: 40
+#     max-break-y: 100
+#     min-build-y: 40
+#     max-build-y: 120
+kit-rules: {}
 messages:
-  usage: '&bFrostMenu &8» &7/frostmenu <player> or /frostmenu reload'
-  players-only: '&cOnly players can open the duel menu.'
-  no-permission: '&cYou do not have permission to do that.'
-  player-not-found: '&cThat player is offline or unavailable.'
-  self-duel: '&cYou cannot duel yourself.'
-  reloaded: '&aFrostMenu configuration reloaded.'
-  reload-failed: '&cConfiguration rejected. Previous settings kept; check the server console.'
-  expired: '&cThis menu has expired. Open /frostmenu <player> again.'
-  invalid-response: '&cChoose a valid whole number of rounds.'
-  command-unavailable: '&cThe configured duel command is unavailable. Check that FrostDuels is installed.'
-  command-failed: '&cThe duel command could not be processed. Check its usage and permissions.'
-  dispatched: '&7Duel request command dispatched for %target% &7(kit: %kit%, rounds: %rounds%).'
-menus:
-  # Open kit pages directly. Page arrows change groups; kit arrows change the highlight.
-  # Confirm opens the dialog. Clicking an icon only highlights it.
-  navigation:
-    enabled: true
-    # Category IDs to show, in arrow-navigation order. Add custom category IDs here.
-    page-order: [mctiers-io, subtiers]
-    selected-lore: '&aSelected — press Confirm below'
-    previous-page:
-      material: ARROW
-      display-name: '&ePrevious Kit Page'
-      lore: ['&7Show the previous group of kits']
-      slot: 36
-    next-page:
-      material: ARROW
-      display-name: '&eNext Kit Page'
-      lore: ['&7Show the next group of kits']
-      slot: 44
-    previous-kit:
-      material: ARROW
-      display-name: '&ePrevious Kit'
-      lore: ['&7Move the highlight to the previous kit']
-      slot: 38
-    next-kit:
-      material: ARROW
-      display-name: '&eNext Kit'
-      lore: ['&7Move the highlight to the next kit']
-      slot: 42
-    confirm:
-      material: LIME_DYE
-      display-name: '&aConfirm: %gamemode-name%'
-      lore: ['&7Open the duel confirmation dialog']
-      slot: 40
-  filler:
-    enabled: true
-    material: GRAY_STAINED_GLASS_PANE
-  categories:
-    title: '&bSelect Kit Category'
-    rows: 3
-  back:
-    material: ARROW
-    display-name: '&eGo Back'
-    lore:
-    - '&7Return to category selection'
-    slot: 44
-dialog:
-  width: 300
-  button-width: 300
-  slider-width: 300
-  body-width: 300
-  # Escape still closes the dialog when this is false.
-  show-close-button: false
-  title: '&6Confirm Duel!'
-  body:
-  - '&e%player% &7vs &e%target%'
-  - '&7Kit: %kit-icon% &a&l%gamemode-name%'
-  # Native item atlas sprites, not emoji characters. All icon paths are editable.
-  icons:
-    kit:
-      atlas: minecraft:items
-      sprite: minecraft:item/diamond_sword
-    rounds:
-      atlas: minecraft:items
-      sprite: minecraft:item/lime_dye
-    advanced:
-      atlas: minecraft:items
-      sprite: minecraft:item/book
-    map:
-      atlas: minecraft:items
-      sprite: minecraft:item/map
-  rounds:
-    min: 1
-    max: 20
-    default: 1
-    label: '%rounds-icon% &fRounds'
-  buttons:
-    advanced: '%advanced-icon% &fView Advanced Options'
-    map: '%map-icon% &fMap Selector &6(%map-name%&6)'
-    send: '%rounds-icon% &fSend Duel'
-    close: '&c✕ Close'
-    back: '&e← Back'
-    apply: '&aApply'
-  map-title: '&6Select Map'
-  advanced:
-    title: '&6Advanced Options'
-    body:
-    - '&7Opponent: &e%target%'
-    - '&7Kit ID: &a%kit%'
-    - '&7First to &e%rounds% &7wins.'
-    - '&7Map: &e%map-name%'
-    - '&7Arenas, kits, and match rules are managed by FrostDuels.'
-maps:
-  random: '&6Random'
-categories:
-  mctiers-io:
-    material: RED_DYE
-    display-name: '&amctiers.io'
-    lore:
-    - '&7Kits from mctiers.io'
-    slot: 11
-    title: '&8Queue: mctiers.io'
-    rows: 5
-    gamemodes:
-      Sword:
-        material: DIAMOND_SWORD
-        display-name: '&aSword'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 10
-        kit: Sword-IO
-      UHC:
-        material: GOLDEN_APPLE
-        display-name: '&aUHC'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 11
-        kit: UHC-IO
-      Axe:
-        material: DIAMOND_AXE
-        display-name: '&aAxe'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 12
-        kit: Axe-IO
-      SMP:
-        material: ENDER_PEARL
-        display-name: '&aSMP'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 13
-        kit: SMP-IO
-      Elytra-IO:
-        material: ELYTRA
-        display-name: '&aElytra-IO'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 14
-        kit: Elytra-IO
-      NetheritePot:
-        material: NETHERITE_HELMET
-        display-name: '&aNetheritePot'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 15
-        kit: NetheritePot-IO
-      Potion:
-        material: POTION
-        display-name: '&aPotion'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 16
-        kit: Potion-IO
-  subtiers:
-    material: YELLOW_DYE
-    display-name: '&aSubtiers Kits'
-    lore:
-    - '&7Kits from subtiers.net'
-    slot: 15
-    title: '&8Queue: Subtiers'
-    rows: 5
-    gamemodes:
-      Diamond-SMP:
-        material: CHORUS_FRUIT
-        display-name: '&aDiamond-SMP'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 10
-        kit: Diamond-SMP
-      Trident:
-        material: TRIDENT
-        display-name: '&aTrident'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 11
-        kit: Trident
-      Manhunt:
-        material: ENDER_PEARL
-        display-name: '&aManhunt'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 12
-        kit: Manhunt
-      Bow:
-        material: BOW
-        display-name: '&aBow'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 13
-        kit: Bow
-      Creeper:
-        material: CREEPER_SPAWN_EGG
-        display-name: '&aCreeper'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 14
-        kit: Creeper
+  prefix: '&bFrostDuels &8» &r'
+  help: '&7/duel <player> — respond to challenges and leave matches using the chat buttons.'
+  admin-help: '&7/frostmenu kit save|load|delete|list [id], /frostmenu arena create|delete|list|setspawn|snapshot|reset [id], /frostmenu setlobby, /frostmenu stop <player>, /frostmenu recover <player>, /frostmenu reload'
+  no-permission: '&cYou do not have permission.'
+  players-only: '&cThis command requires a player.'
+  bad-arguments: '&cInvalid arguments. Use /frostmenu help.'
+  not-found: '&cThat online player, kit, arena, or request does not exist.'
+  invalid-id: '&cUse 1–48 letters, digits, underscores, or hyphens for IDs. random is reserved for maps.'
+  self: '&cYou cannot duel yourself.'
+  unavailable: '&cOne of the players is busy, dead, in spectator mode, or awaiting recovery.'
+  cooldown: '&cPlease wait before sending another challenge.'
+  not-ready: '&cAn administrator must set the lobby and at least one arena with both spawns.'
+  no-arena: '&cNo free arena matches that map. Try again after a match finishes.'
+  invalid-rounds: '&cRounds must be a whole number between 1 and %max%.'
+  requested: '&aChallenge sent to %target%: %kit%, first to %rounds%, map %map%.'
+  received: '&e%player% challenged you with %kit% — first to %rounds%, map %map%.'
+  accept-button: '&a&l[ACCEPT] '
+  deny-button: '&c&l[DENY]'
+  accept-hover: '&aAccept this challenge'
+  deny-hover: '&cDeny this challenge'
+  denied: '&eChallenge denied.'
+  denied-sender: '&e%player% declined your challenge.'
+  expired: '&cThat challenge expired or its sender disconnected.'
+  saved: '&aSaved %id%.'
+  loaded: '&aLoaded %id% into your inventory and active effects.'
+  deleted: '&aDeleted %id%.'
+  exists: '&cThat ID already exists.'
+  arena-invalid: '&cArena spawns must share a world, be distinct, and not overlap another arena region.'
+  arena-busy: '&cThat arena is in use. Stop its match before editing it.'
+  list: '&7%kind%: &f%entries%'
+  reloaded: '&aConfiguration reloaded. Existing match timing is unchanged.'
+  reload-busy: '&cStop active matches before reloading.'
+  io-error: '&cCould not save or restore player data. Check the console; recovery data was retained.'
+  config-error: '&cConfiguration rejected; previous settings remain active. Check the console.'
+  starting: '&aDuel against %opponent% in %arena% — first to %rounds% wins.'
+  countdown: '&eRound starts in %seconds%…'
+  fight: '&c&lFIGHT!'
+  score: '&e%winner% wins the round! &f%first% %score1% &7– &f%score2% %second%'
+  won: '&a%winner% won the duel! &f%score1%–%score2%'
+  forfeit: '&e%loser% left. %winner% wins by forfeit.'
+  stopped: '&eDuel stopped by an administrator or server shutdown.'
+  timeout: '&eDuel stopped because the round time limit was reached.'
+  start-failed: '&cDuel stopped because a teleport or player-data operation failed.'
+  left: '&eYou left the duel.'
+  not-playing: '&cYou are not in a duel.'
+  command-blocked: '&cUse the Leave Duel button to forfeit.'
+  leave-button: '&c&l[LEAVE DUEL]'
+  leave-hover: '&cForfeit this match and return to the lobby'
+  recovered: '&aYour pre-duel items and player state have been restored.'
+  no-recovery: '&7You have no pending recovery.'
+  snapshot-required: '&cThis arena needs /frostmenu arena snapshot <id> <minY> <maxY> before terrain changes are allowed.'
+  snapshot-limit: '&cSnapshot exceeds 1000000 blocks, has invalid Y bounds, or excludes a spawn. Reduce arena padding or height.'
+  arena-locked: '&cArena reset failed or is pending. An administrator must use /frostmenu arena reset <id> and check the console.'
+  rules-blocked: '&cThat action is disabled by this kit’s rules or outside its allowed height.'

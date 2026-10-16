@@ -5,11 +5,11 @@ import java.util.regex.Pattern;
 
 /** Pure validation shared by configuration loading and untrusted dialog responses. */
 final class DuelRules {
-    private static final Pattern TOKEN = Pattern.compile("[A-Za-z0-9_.:-]{1,80}");
+    private static final Pattern TOKEN = Pattern.compile("[A-Za-z0-9_-]{1,48}");
 
     static String token(String value) {
         if (value == null || !TOKEN.matcher(value).matches()) {
-            throw new IllegalArgumentException("Kit/map identifiers must use letters, digits, _, ., :, or - (1–80 characters)");
+            throw new IllegalArgumentException("Kit/map identifiers must use letters, digits, _, or - (1–48 characters)");
         }
         return value;
     }
@@ -20,25 +20,6 @@ final class DuelRules {
             throw new IllegalArgumentException("Invalid rounds response");
         }
         return value.intValue();
-    }
-
-    static String command(String template) {
-        String result = template.startsWith("/") ? template.substring(1) : template;
-        if (result.isBlank() || result.indexOf('\n') >= 0 || result.indexOf('\r') >= 0
-                || !result.matches("[A-Za-z0-9_.:-]+(?: .*)?")) {
-            throw new IllegalArgumentException("Command must be a single command line");
-        }
-        String root = result.split(" ", 2)[0].toLowerCase(java.util.Locale.ROOT);
-        if (root.equals("duel") || root.equals("frostmenu") || root.endsWith(":frostmenu")
-                || root.equals("frostmenu:duel")) {
-            throw new IllegalArgumentException("Use Cloud's namespaced duel command to avoid menu recursion");
-        }
-        String stripped = result;
-        for (String key : new String[]{"player", "target", "kit", "rounds", "map"}) {
-            stripped = stripped.replace("%" + key + "%", "");
-        }
-        if (stripped.contains("%")) throw new IllegalArgumentException("Unknown command placeholder");
-        return result;
     }
 
     static String expand(String template, Map<String, String> values) {
