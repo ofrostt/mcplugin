@@ -5,15 +5,23 @@ import java.util.*;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import net.kyori.adventure.text.Component;
 
 final class Settings {
     record Icon(Material material, String name, List<String> lore, int slot) {}
-    record Mode(String id, Icon icon, String kit, String command) {}
+    record Mode(String id, Icon icon, String kit, String command, String dialogName) {}
     record Category(String id, Icon icon, String title, int rows, List<Mode> modes) {}
     record Arena(String id, String label) {}
 
     final YamlConfiguration yaml;
     final int categoryRows, minRounds, maxRounds, defaultRounds, width, timeout;
+    final int buttonWidth, sliderWidth, bodyWidth;
+    final boolean paged, fillerEnabled, showClose;
+    final Material fillerMaterial;
+    final Icon previousPage, nextPage, previousKit, nextKit, confirm;
+    final Map<String, Component> dialogIcons;
     final Icon back;
     final List<Category> categories;
     final List<Arena> arenas;
@@ -21,14 +29,35 @@ final class Settings {
     Settings(File file) throws Exception {
         yaml = new YamlConfiguration();
         yaml.load(file); // Unlike loadConfiguration(), parse failures must abort reload.
+        try (var input = Objects.requireNonNull(Settings.class.getResourceAsStream("/config.yml"))) {
+            yaml.setDefaults(YamlConfiguration.loadConfiguration(new InputStreamReader(input, StandardCharsets.UTF_8)));
+        }
         categoryRows = integer("menus.categories.rows", 1, 6);
         minRounds = integer("dialog.rounds.min", 1, 1000);
         maxRounds = integer("dialog.rounds.max", minRounds + 1, 1000);
         defaultRounds = integer("dialog.rounds.default", minRounds, maxRounds);
         width = integer("dialog.width", 150, 1024);
+        buttonWidth = integer("dialog.button-width", 150, 1024);
+        sliderWidth = integer("dialog.slider-width", 150, 1024);
+        bodyWidth = integer("dialog.body-width", 150, 1024);
+        showClose = yaml.getBoolean("dialog.show-close-button", false);
+        paged = yaml.getBoolean("menus.navigation.enabled", true);
+        previousPage = icon(section("menus.navigation.previous-page"), 54);
+        nextPage = icon(section("menus.navigation.next-page"), 54);
+        previousKit = icon(section("menus.navigation.previous-kit"), 54);
+        nextKit = icon(section("menus.navigation.next-kit"), 54);
+        confirm = icon(section("menus.navigation.confirm"), 54);
+        fillerEnabled = yaml.getBoolean("menus.filler.enabled", true);
+        fillerMaterial = Material.matchMaterial(text("menus.filler.material"));
+        if (fillerMaterial == null || fillerMaterial.isAir() || !fillerMaterial.isItem()) fail("Invalid filler material");
+        Map<String, Component> icons = new LinkedHashMap<>();
+        for (String key : List.of("kit", "rounds", "advanced", "map")) {
+            icons.put(key, DialogText.sprite(text("dialog.icons." + key + ".atlas"), text("dialog.icons." + key + ".sprite")));
+        }
+        dialogIcons = Map.copyOf(icons);
         timeout = integer("session-timeout-seconds", 10, 3600);
         back = icon(section("menus.back"), 54);
-        for (String path : List.of("menus.categories.title", "dialog.title", "dialog.rounds.label",
+        for (String path : List.of("menus.categories.title", "menus.navigation.selected-lore", "dialog.title", "dialog.rounds.label",
                 "dialog.buttons.advanced", "dialog.buttons.map", "dialog.buttons.send", "dialog.buttons.close",
                 "dialog.buttons.back", "dialog.buttons.apply", "dialog.advanced.title", "dialog.map-title",
                 "messages.usage", "messages.players-only", "messages.no-permission", "messages.player-not-found",
@@ -45,11 +74,16 @@ final class Settings {
             Icon icon = icon(cat, categoryRows * 9);
             if (!categorySlots.add(icon.slot())) fail("Duplicate category slot " + icon.slot());
             int rows = cat.getInt("rows");
-            if (rows < 1 || rows > 6 || back.slot() >= rows * 9) fail("Invalid rows/back slot for " + id);
+            if (rows < 1 || rows > 6 || (!paged && back.slot() >= rows * 9)) fail("Invalid rows/back slot for " + id);
             String title = required(cat, "title");
             ConfigurationSection modes = cat.getConfigurationSection("gamemodes");
             if (modes == null || modes.getKeys(false).isEmpty()) fail("No gamemodes in " + id);
-            Set<Integer> slots = new HashSet<>(Set.of(back.slot()));
+            Set<Integer> slots = new HashSet<>();
+            if (paged) {
+                for (Icon control : List.of(previousPage, nextPage, previousKit, nextKit, confirm)) {
+                    if (control.slot() >= rows * 9 || !slots.add(control.slot())) fail("Navigation controls must fit and have unique slots in " + id);
+                }
+            } else slots.add(back.slot());
             List<Mode> parsedModes = new ArrayList<>();
             for (String modeId : modes.getKeys(false)) {
                 ConfigurationSection mode = Objects.requireNonNull(modes.getConfigurationSection(modeId));
@@ -59,7 +93,8 @@ final class Settings {
                 if (!command.contains("%target%") || !command.contains("%kit%") || !command.contains("%rounds%")) {
                     fail("Duel commands must contain %target%, %kit%, and %rounds%");
                 }
-                parsedModes.add(new Mode(modeId, item, DuelRules.token(required(mode, "kit")), command));
+                parsedModes.add(new Mode(modeId, item, DuelRules.token(required(mode, "kit")), command,
+                        mode.getString("dialog-name", item.name())));
             }
             parsed.add(new Category(id, icon, title, rows, List.copyOf(parsedModes)));
         }
@@ -85,7 +120,8 @@ final class Settings {
         return value;
     }
     private int integer(String path, int min, int max) {
-        int value = yaml.getInt(path, Integer.MIN_VALUE);
+        if (!yaml.isInt(path)) throw new IllegalArgumentException(path + " must be an integer");
+        int value = yaml.getInt(path);
         if (value < min || value > max) throw new IllegalArgumentException(path + " must be between " + min + " and " + max);
         return value;
     }
@@ -97,7 +133,7 @@ final class Settings {
     private static Icon icon(ConfigurationSection section, int size) {
         Material material = Material.matchMaterial(required(section, "material"));
         if (material == null || !material.isItem() || material.isAir()) throw new IllegalArgumentException("Invalid item material at " + section.getCurrentPath());
-        int slot = section.getInt("slot", -1);
+        int slot = section.isInt("slot") ? section.getInt("slot") : -1;
         if (slot < 0 || slot >= size) throw new IllegalArgumentException("Invalid slot at " + section.getCurrentPath());
         return new Icon(material, required(section, "display-name"), List.copyOf(section.getStringList("lore")), slot);
     }

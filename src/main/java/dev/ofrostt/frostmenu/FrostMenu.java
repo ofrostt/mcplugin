@@ -14,6 +14,7 @@ import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
@@ -36,6 +37,8 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
         int rounds;
         String map;
         long view;
+        String categoryName = "";
+        final Map<String, Integer> selections = new HashMap<>();
         Session(Player player, Player target, Settings settings) {
             owner = player.getUniqueId(); this.target = target.getUniqueId(); targetName = target.getName();
             expires = System.currentTimeMillis() + settings.timeout * 1000L;
@@ -101,19 +104,47 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
         player.closeDialog();
         Session session = new Session(player, target, settings);
         sessions.put(player.getUniqueId(), session);
-        openMenu(player, session, null);
+        openMenu(player, session, settings.paged ? settings.categories.getFirst() : null);
         return true;
     }
 
     private void openMenu(Player player, Session session, Settings.Category category) {
+        if (category != null) {
+            session.categoryName = plain(category.icon().name());
+            if (settings.paged) session.mode = category.modes().get(session.selections.getOrDefault(category.id(), 0));
+        }
         Menu holder = new Menu(session, category);
+        String title = category == null ? settings.text("menus.categories.title") : category.title();
+        if (settings.paged && title.equals("&aDuel &f%target%")) title = "&8Queue: %category%";
         holder.inventory = Bukkit.createInventory(holder, (category == null ? settings.categoryRows : category.rows()) * 9,
-                render(category == null ? settings.text("menus.categories.title") : category.title(), player, session));
+                render(title, player, session));
+        if (settings.fillerEnabled) {
+            ItemStack filler = new ItemStack(settings.fillerMaterial);
+            filler.editMeta(meta -> meta.displayName(Component.text(" ")));
+            for (int slot = 0; slot < holder.inventory.getSize(); slot++) holder.inventory.setItem(slot, filler);
+        }
         if (category == null) {
             for (Settings.Category cat : settings.categories) holder.inventory.setItem(cat.icon().slot(), item(cat.icon(), player, session));
         } else {
-            for (Settings.Mode mode : category.modes()) holder.inventory.setItem(mode.icon().slot(), item(mode.icon(), player, session));
-            holder.inventory.setItem(settings.back.slot(), item(settings.back, player, session));
+            for (Settings.Mode mode : category.modes()) {
+                ItemStack stack = item(mode.icon(), player, session);
+                if (settings.paged) stack.editMeta(meta -> meta.setEnchantmentGlintOverride(mode == session.mode));
+                if (settings.paged && mode == session.mode) stack.editMeta(meta -> {
+                    meta.setEnchantmentGlintOverride(true);
+                    List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
+                    lore.add(render(settings.text("menus.navigation.selected-lore"), player, session));
+                    meta.lore(lore);
+                });
+                holder.inventory.setItem(mode.icon().slot(), stack);
+            }
+            if (settings.paged) {
+                int page = settings.categories.indexOf(category);
+                if (page > 0) holder.inventory.setItem(settings.previousPage.slot(), item(settings.previousPage, player, session));
+                if (page + 1 < settings.categories.size()) holder.inventory.setItem(settings.nextPage.slot(), item(settings.nextPage, player, session));
+                for (Settings.Icon icon : List.of(settings.previousKit, settings.confirm, settings.nextKit)) {
+                    holder.inventory.setItem(icon.slot(), item(icon, player, session));
+                }
+            } else holder.inventory.setItem(settings.back.slot(), item(settings.back, player, session));
         }
         player.openInventory(holder.inventory);
     }
@@ -135,6 +166,7 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
         Session session = menu.session;
         if (!valid(player, session) || menu.view != session.view) return;
         int slot = event.getRawSlot();
+        if (settings.paged && menu.category != null) { pagedClick(player, menu, slot); return; }
         Settings.Category next = null;
         Settings.Mode mode = null;
         if (menu.category == null) {
@@ -157,6 +189,41 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
         });
     }
 
+    private void pagedClick(Player player, Menu menu, int slot) {
+        Session session = menu.session;
+        Settings.Category category = menu.category;
+        int page = settings.categories.indexOf(category);
+        int selection = session.selections.getOrDefault(category.id(), 0);
+        boolean openDialog = slot == settings.confirm.slot();
+        Settings.Category destination = category;
+        if (slot == settings.previousPage.slot()) {
+            if (page == 0) return;
+            destination = settings.categories.get(page - 1);
+        } else if (slot == settings.nextPage.slot()) {
+            if (page + 1 >= settings.categories.size()) return;
+            destination = settings.categories.get(page + 1);
+        } else if (slot == settings.previousKit.slot()) selection = Math.floorMod(selection - 1, category.modes().size());
+        else if (slot == settings.nextKit.slot()) selection = (selection + 1) % category.modes().size();
+        else if (!openDialog) {
+            selection = -1;
+            for (int index = 0; index < category.modes().size(); index++) {
+                if (category.modes().get(index).icon().slot() == slot) { selection = index; break; }
+            }
+            if (selection < 0) return;
+        }
+        int selected = selection;
+        Settings.Category next = destination;
+        long ticket = ++session.view;
+        Bukkit.getScheduler().runTask(this, () -> {
+            if (!valid(player, session) || session.view != ticket) return;
+            session.selections.put(category.id(), selected);
+            if (openDialog) {
+                session.mode = category.modes().get(selected);
+                player.closeInventory(); confirm(player, session);
+            } else openMenu(player, session, next);
+        });
+    }
+
     @EventHandler public void drag(InventoryDragEvent event) {
         if (event.getView().getTopInventory().getHolder() instanceof Menu) event.setCancelled(true);
     }
@@ -166,15 +233,15 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
         sessions.entrySet().removeIf(entry -> entry.getKey().equals(id) || entry.getValue().target.equals(id));
     }
 
-    private void confirm(Player player, Session session) {
+    protected void confirm(Player player, Session session) {
         long view = ++session.view;
         var rounds = DialogInput.numberRange("rounds", render(settings.text("dialog.rounds.label"), player, session),
-                settings.minRounds, settings.maxRounds).initial((float) session.rounds).step(1f).width(settings.width).build();
+                settings.minRounds, settings.maxRounds).initial((float) session.rounds).step(1f).width(settings.sliderWidth).build();
         List<ActionButton> buttons = new ArrayList<>();
         buttons.add(button("advanced", player, session, view, response -> {
             if (readRounds(player, session, response)) advanced(player, session);
         }));
-        buttons.add(ActionButton.create(render(settings.text("dialog.buttons.map"), player, session), null, settings.width,
+        buttons.add(ActionButton.create(render(settings.text("dialog.buttons.map"), player, session), null, settings.buttonWidth,
                 callback(player, session, view, response -> {
                     if (readRounds(player, session, response)) maps(player, session);
                 })));
@@ -182,7 +249,7 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
             if (readRounds(player, session, response)) send(player, session);
         }));
         show(player, settings.text("dialog.title"), session, settings.lines("dialog.body"), List.of(rounds), buttons,
-                button("close", player, session, view, response -> sessions.remove(player.getUniqueId(), session)));
+                settings.showClose ? button("close", player, session, view, response -> sessions.remove(player.getUniqueId(), session)) : null);
     }
 
     private void advanced(Player player, Session session) {
@@ -196,7 +263,7 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
         long view = ++session.view;
         List<ActionButton> buttons = new ArrayList<>();
         for (Settings.Arena arena : settings.arenas) {
-            buttons.add(ActionButton.create(render(arena.label(), player, session), null, settings.width,
+            buttons.add(ActionButton.create(render(arena.label(), player, session), null, settings.buttonWidth,
                     callback(player, session, view, response -> { session.map = arena.id(); confirm(player, session); })));
         }
         show(player, settings.text("dialog.map-title"), session, List.of(), List.of(), buttons,
@@ -204,7 +271,7 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
     }
 
     private ActionButton button(String key, Player player, Session session, long view, Consumer<DialogResponseView> action) {
-        return ActionButton.create(render(settings.text("dialog.buttons." + key), player, session), null, settings.width,
+        return ActionButton.create(render(settings.text("dialog.buttons." + key), player, session), null, settings.buttonWidth,
                 callback(player, session, view, action));
     }
 
@@ -223,7 +290,7 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
                       List<? extends DialogInput> inputs, List<ActionButton> actions, ActionButton exit) {
         DialogBase base = DialogBase.builder(render(title, player, session)).canCloseWithEscape(true)
                 .afterAction(DialogBase.DialogAfterAction.CLOSE)
-                .body(body.stream().map(line -> DialogBody.plainMessage(render(line, player, session), settings.width)).toList())
+                .body(body.stream().map(line -> DialogBody.plainMessage(render(line, player, session), settings.bodyWidth)).toList())
                 .inputs(inputs).build();
         player.showDialog(Dialog.create(builder -> builder.empty().base(base).type(DialogType.multiAction(actions, exit, 1))));
     }
@@ -270,12 +337,29 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
         String mapLabel = settings.arenas.stream().filter(arena -> arena.id().equals(session.map)).findFirst().orElseThrow().label();
         return Map.of("player", player.getName(), "target", session.targetName,
                 "kit", session.mode == null ? "" : session.mode.kit(),
-                "gamemode", session.mode == null ? "" : session.mode.icon().name(),
+                "gamemode", session.mode == null ? "" : session.mode.dialogName(),
+                "gamemode-name", session.mode == null ? "" : plain(session.mode.dialogName()),
+                "category", session.categoryName,
                 "rounds", String.valueOf(session.rounds), "map", session.map, "map-name", mapLabel);
     }
 
     private Component render(String text, Player player, Session session) {
-        return colors.deserialize(DuelRules.expand(text, values(player, session)));
+        return DialogText.render(modernize(text), values(player, session), settings.dialogIcons);
+    }
+
+    private String plain(String text) { return PlainTextComponentSerializer.plainText().serialize(colors.deserialize(text)); }
+
+    // Upgrade only the previous shipped labels in memory; retain custom text and server config files.
+    private String modernize(String text) {
+        return switch (text) {
+            case "&a♟ &fRounds" -> "%rounds-icon% &fRounds";
+            case "&f📖 View Advanced Options" -> "%advanced-icon% &fView Advanced Options";
+            case "&f✦ Map Selector &6(%map-name%&6)" -> "%map-icon% &fMap Selector &6(%map-name%&6)";
+            case "&a♟ &fSend Duel" -> "%rounds-icon% &fSend Duel";
+            case "&7Kit: &a%gamemode%" -> "&7Kit: %kit-icon% &a&l%gamemode-name%";
+            case "&6Confirm Duel! ⚠" -> "&6Confirm Duel!";
+            default -> text;
+        };
     }
 
     private void message(CommandSender sender, String key, Map<String, String> values) {

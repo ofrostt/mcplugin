@@ -71,4 +71,23 @@ class SettingsTest {
         Files.writeString(file, "dialog: [broken");
         assertThrows(Exception.class, () -> new Settings(file.toFile()));
     }
+
+    @Test void oldConfigsGainNavigationAndSpriteDefaultsWithoutFileChanges() throws Exception {
+        var config = YamlConfiguration.loadConfiguration(file.toFile());
+        for (String path : java.util.List.of("menus.navigation", "menus.filler", "dialog.icons", "dialog.button-width",
+                "dialog.slider-width", "dialog.body-width", "dialog.show-close-button")) config.set(path, null);
+        config.save(file.toFile()); String before = Files.readString(file);
+        Settings settings = new Settings(file.toFile());
+        assertTrue(settings.paged); assertEquals(300, settings.buttonWidth); assertEquals(300, settings.sliderWidth);
+        assertFalse(settings.showClose); assertEquals(4, settings.dialogIcons.size());
+        assertEquals(before, Files.readString(file));
+    }
+
+    @Test void navigationSlotsCannotOverlapKitsOrEachOther() throws Exception {
+        var config = YamlConfiguration.loadConfiguration(file.toFile());
+        config.set("menus.navigation.next-kit.slot", 10); config.save(file.toFile());
+        assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
+        config.set("menus.navigation.next-kit.slot", 40); config.save(file.toFile());
+        assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
+    }
 }
