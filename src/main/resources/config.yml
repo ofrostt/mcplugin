@@ -1,0 +1,227 @@
+# FrostMenu — Paper 1.21.11 / Java 21
+# Text supports & color codes (including &l bold). No resource pack is required.
+# Text placeholders: %player%, %target%, %gamemode%, %kit%, %rounds%, %map%, %map-name%.
+# Command placeholders: %player%, %target%, %kit%, %rounds%, %map%.
+# Commands run AS THE PLAYER, never as console. Keep FrostDuels permissions enabled.
+# Use exact FrostDuels kit IDs. Create kits and arenas with /frostduels.
+# Map IDs are FrostDuels arena IDs; random selects a free arena.
+# Advanced Options is a configurable information page. Edit gameplay rules in FrostDuels/config.yml.
+# Slots are zero-based. Category and gamemode slots must be unique within each menu.
+# Restart after changing command aliases/permissions in plugin.yml; reload config with /frostmenu reload.
+
+session-timeout-seconds: 300
+integration:
+  duel-command: frostduels:frostduels duel %target% %kit% %rounds% %map%
+messages:
+  usage: '&bFrostMenu &8» &7/frostmenu <player> or /frostmenu reload'
+  players-only: '&cOnly players can open the duel menu.'
+  no-permission: '&cYou do not have permission to do that.'
+  player-not-found: '&cThat player is offline or unavailable.'
+  self-duel: '&cYou cannot duel yourself.'
+  reloaded: '&aFrostMenu configuration reloaded.'
+  reload-failed: '&cConfiguration rejected. Previous settings kept; check the server console.'
+  expired: '&cThis menu has expired. Open /frostmenu <player> again.'
+  invalid-response: '&cChoose a valid whole number of rounds.'
+  command-unavailable: '&cThe configured duel command is unavailable. Check that FrostDuels is installed.'
+  command-failed: '&cThe duel command could not be processed. Check its usage and permissions.'
+  dispatched: '&7Duel request command dispatched for %target% &7(kit: %kit%, rounds: %rounds%).'
+menus:
+  categories:
+    title: '&bSelect Kit Category'
+    rows: 3
+  back:
+    material: ARROW
+    display-name: '&eGo Back'
+    lore:
+    - '&7Return to category selection'
+    slot: 44
+dialog:
+  width: 400
+  title: '&6Confirm Duel! ⚠'
+  body:
+  - '&e%player% &7vs &e%target%'
+  - '&7Kit: &a%gamemode%'
+  rounds:
+    min: 1
+    max: 20
+    default: 1
+    label: '&a♟ &fRounds'
+  buttons:
+    advanced: '&f📖 View Advanced Options'
+    map: '&f✦ Map Selector &6(%map-name%&6)'
+    send: '&a♟ &fSend Duel'
+    close: '&c✕ Close'
+    back: '&e← Back'
+    apply: '&aApply'
+  map-title: '&6Select Map'
+  advanced:
+    title: '&6Advanced Options'
+    body:
+    - '&7Opponent: &e%target%'
+    - '&7Kit ID: &a%kit%'
+    - '&7First to &e%rounds% &7wins.'
+    - '&7Map: &e%map-name%'
+    - '&7Arenas, kits, and match rules are managed by FrostDuels.'
+maps:
+  random: '&6Random'
+categories:
+  mctiers-io:
+    material: RED_DYE
+    display-name: '&amctiers.io'
+    lore:
+    - '&7Kits from mctiers.io'
+    slot: 11
+    title: '&aDuel &f%target%'
+    rows: 5
+    gamemodes:
+      Sword:
+        material: DIAMOND_SWORD
+        display-name: '&aSword'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 10
+        kit: Sword-IO
+      UHC:
+        material: GOLDEN_APPLE
+        display-name: '&aUHC'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 12
+        kit: UHC-IO
+      Axe:
+        material: DIAMOND_AXE
+        display-name: '&aAxe'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 14
+        kit: Axe-IO
+      SMP:
+        material: ENDER_PEARL
+        display-name: '&aSMP'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 16
+        kit: SMP-IO
+      Elytra-IO:
+        material: ELYTRA
+        display-name: '&aElytra-IO'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 19
+        kit: Elytra-IO
+      NetheritePot:
+        material: NETHERITE_HELMET
+        display-name: '&aNetheritePot'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 21
+        kit: NetheritePot-IO
+      Potion:
+        material: POTION
+        display-name: '&aPotion'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 23
+        kit: Potion-IO
+  mctiers-com:
+    material: GREEN_DYE
+    display-name: '&amctiers.com'
+    lore:
+    - '&7Kits from mctiers.com'
+    slot: 13
+    title: '&aDuel &f%target%'
+    rows: 5
+    gamemodes:
+      Sword:
+        material: DIAMOND_SWORD
+        display-name: '&aSword'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 10
+        kit: Sword-COM
+      UHC:
+        material: GOLDEN_APPLE
+        display-name: '&aUHC'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 12
+        kit: UHC-COM
+      Axe:
+        material: DIAMOND_AXE
+        display-name: '&aAxe'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 14
+        kit: Axe-COM
+      SMP:
+        material: ENDER_PEARL
+        display-name: '&aSMP'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 16
+        kit: SMP-COM
+      Mace:
+        material: MACE
+        display-name: '&aMace'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 19
+        kit: Mace-COM
+      NetheritePot:
+        material: NETHERITE_HELMET
+        display-name: '&aNetheritePot'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 21
+        kit: NetheritePot-COM
+      Potion:
+        material: POTION
+        display-name: '&aPotion'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 23
+        kit: Potion-COM
+  subtiers:
+    material: YELLOW_DYE
+    display-name: '&aSubtiers Kits'
+    lore:
+    - '&7Kits from subtiers.net'
+    slot: 15
+    title: '&aDuel &f%target%'
+    rows: 5
+    gamemodes:
+      Diamond-SMP:
+        material: CHORUS_FRUIT
+        display-name: '&aDiamond-SMP'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 10
+        kit: Diamond-SMP
+      Trident:
+        material: TRIDENT
+        display-name: '&aTrident'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 12
+        kit: Trident
+      Manhunt:
+        material: ENDER_PEARL
+        display-name: '&aManhunt'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 14
+        kit: Manhunt
+      Bow:
+        material: BOW
+        display-name: '&aBow'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 16
+        kit: Bow
+      Creeper:
+        material: CREEPER_SPAWN_EGG
+        display-name: '&aCreeper'
+        lore:
+        - '&7Click to select this gamemode'
+        slot: 19
+        kit: Creeper

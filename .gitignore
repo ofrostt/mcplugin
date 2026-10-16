@@ -1,0 +1,5 @@
+/target/
+/frostduels/target/
+/.idea/
+*.iml
+/.vscode/

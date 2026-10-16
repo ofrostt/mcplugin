@@ -1,0 +1,94 @@
+# Dedicated duel server. Terrain edits need a saved arena snapshot before a match can start.
+# Text uses & color codes. All FrostDuels chat text and request button labels live here.
+# Kits, arenas and lobby are stored separately in data.yml. Never edit recovery/ manually.
+request-expiry-seconds: 60
+request-cooldown-seconds: 3
+countdown-seconds: 3
+round-time-limit-seconds: 600
+max-rounds: 20
+arena-padding-blocks: 16
+protect-lobby: true
+# Rules are global defaults; override any subset per exact kit ID under kit-rules.
+# Y limits are inclusive. Place and break limits are independent of arena snapshot bounds.
+# The arena snapshot must enclose the whole area players can change.
+rules:
+  saturation: true
+  regeneration: true
+  natural-regeneration: true
+  potion-regeneration: true
+  hunger: true
+  starting-food: 20
+  starting-saturation: 20.0
+  terrain-damage: false
+  building: false
+  breaking: false
+  explosion-terrain-damage: false
+  min-break-y: -64
+  max-break-y: 319
+  min-build-y: -64
+  max-build-y: 319
+# Example override (uncomment and use your exact saved kit ID):
+# kit-rules:
+#   UHC-IO:
+#     terrain-damage: true
+#     building: true
+#     breaking: true
+#     natural-regeneration: false
+#     min-break-y: 40
+#     max-break-y: 100
+#     min-build-y: 40
+#     max-build-y: 120
+kit-rules: {}
+messages:
+  prefix: '&bFrostDuels &8» &r'
+  help: '&7/fd duel <player> <kit> [rounds] [map], /fd accept <player>, /fd deny <player>, /fd leave, /fd recover'
+  admin-help: '&7/fd kit save|load|delete|list [id], /fd arena create|delete|list|setspawn|snapshot|reset [id], /fd setlobby, /fd stop <player>, /fd reload'
+  no-permission: '&cYou do not have permission.'
+  players-only: '&cThis command requires a player.'
+  bad-arguments: '&cInvalid arguments. Use /frostduels help.'
+  not-found: '&cThat online player, kit, arena, or request does not exist.'
+  invalid-id: '&cUse 1–48 letters, digits, underscores, or hyphens for IDs. random is reserved for maps.'
+  self: '&cYou cannot duel yourself.'
+  unavailable: '&cOne of the players is busy, dead, in spectator mode, or awaiting recovery.'
+  cooldown: '&cPlease wait before sending another challenge.'
+  not-ready: '&cAn administrator must set the lobby and at least one arena with both spawns.'
+  no-arena: '&cNo free arena matches that map. Try again after a match finishes.'
+  invalid-rounds: '&cRounds must be a whole number between 1 and %max%.'
+  requested: '&aChallenge sent to %target%: %kit%, first to %rounds%, map %map%.'
+  received: '&e%player% challenged you with %kit% — first to %rounds%, map %map%.'
+  accept-button: '&a&l[ACCEPT] '
+  deny-button: '&c&l[DENY]'
+  accept-hover: '&aAccept this challenge'
+  deny-hover: '&cDeny this challenge'
+  denied: '&eChallenge denied.'
+  denied-sender: '&e%player% declined your challenge.'
+  expired: '&cThat challenge expired or its sender disconnected.'
+  saved: '&aSaved %id%.'
+  loaded: '&aLoaded %id% into your inventory and active effects.'
+  deleted: '&aDeleted %id%.'
+  exists: '&cThat ID already exists.'
+  arena-invalid: '&cArena spawns must share a world, be distinct, and not overlap another arena region.'
+  arena-busy: '&cThat arena is in use. Stop its match before editing it.'
+  list: '&7%kind%: &f%entries%'
+  reloaded: '&aConfiguration reloaded. Existing match timing is unchanged.'
+  reload-busy: '&cStop active matches before reloading.'
+  io-error: '&cCould not save or restore player data. Check the console; recovery data was retained.'
+  config-error: '&cConfiguration rejected; previous settings remain active. Check the console.'
+  starting: '&aDuel against %opponent% in %arena% — first to %rounds% wins.'
+  countdown: '&eRound starts in %seconds%…'
+  fight: '&c&lFIGHT!'
+  score: '&e%winner% wins the round! &f%first% %score1% &7– &f%score2% %second%'
+  won: '&a%winner% won the duel! &f%score1%–%score2%'
+  forfeit: '&e%loser% left. %winner% wins by forfeit.'
+  stopped: '&eDuel stopped by an administrator or server shutdown.'
+  timeout: '&eDuel stopped because the round time limit was reached.'
+  start-failed: '&cDuel stopped because a teleport or player-data operation failed.'
+  left: '&eYou left the duel.'
+  not-playing: '&cYou are not in a duel.'
+  command-blocked: '&cYou can only use /frostduels leave during a duel.'
+  recovered: '&aYour pre-duel items and player state have been restored.'
+  no-recovery: '&7You have no pending recovery.'
+  snapshot-required: '&cThis arena needs /fd arena snapshot <id> <minY> <maxY> before terrain changes are allowed.'
+  snapshot-limit: '&cSnapshot exceeds 1000000 blocks, has invalid Y bounds, or excludes a spawn. Reduce arena padding or height.'
+  arena-locked: '&cArena reset failed or is pending. An administrator must use /fd arena reset <id> and check the console.'
+  rules-blocked: '&cThat action is disabled by this kit’s rules or outside its allowed height.'

@@ -1,0 +1,17 @@
+name: FrostDuels
+version: 1.0.0
+main: dev.ofrostt.frostduels.FrostDuels
+api-version: '1.21.11'
+description: Dedicated-server duel engine with saved kits, arenas, rounds, and recovery.
+commands:
+  frostduels:
+    aliases: [fd]
+    description: Duel requests, kits, and arena administration.
+    usage: /frostduels help
+permissions:
+  frostduels.use:
+    default: true
+    description: Challenge, accept, deny, and leave duels.
+  frostduels.admin:
+    default: op
+    description: Manage kits, arenas, lobby, and running matches.

@@ -1,0 +1,44 @@
+name: Build plugins
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: |
+            pom.xml
+            frostduels/pom.xml
+
+      - name: Build and test both plugins
+        run: bash build-all.sh clean
+
+      - name: Collect plugin JARs
+        run: |
+          mkdir -p dist
+          cp target/FrostMenu-*.jar dist/
+          cp frostduels/target/FrostDuels-*.jar dist/
+
+      - name: Upload downloadable plugins
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrostPlugins
+          path: dist/*.jar
+          if-no-files-found: error
+          retention-days: 30

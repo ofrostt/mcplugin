@@ -1,0 +1,74 @@
+package dev.ofrostt.frostmenu;
+
+import static org.junit.jupiter.api.Assertions.*;
+import java.nio.file.*;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockbukkit.mockbukkit.MockBukkit;
+
+class SettingsTest {
+    @TempDir Path temp;
+    Path file;
+
+    @BeforeEach void setUp() throws Exception {
+        MockBukkit.mock();
+        file = temp.resolve("config.yml");
+        try (var input = getClass().getResourceAsStream("/config.yml")) {
+            Files.copy(input, file);
+        }
+    }
+
+    @AfterEach void tearDown() { MockBukkit.unmock(); }
+
+    @Test void defaultConfigLoadsAllSampleCategoriesAndExactKitIds() throws Exception {
+        Settings settings = new Settings(file.toFile());
+        assertEquals(3, settings.categories.size());
+        assertEquals(19, settings.categories.stream().mapToInt(c -> c.modes().size()).sum());
+        var elytra = settings.categories.getFirst().modes().stream().filter(m -> m.id().equals("Elytra-IO")).findFirst().orElseThrow();
+        assertEquals("Elytra-IO", elytra.kit()); // No accidental -IO-IO suffix.
+        assertEquals("random", settings.arenas.getFirst().id());
+    }
+
+    @Test void duplicateAndOutOfRangeSlotsAreRejected() throws Exception {
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
+        config.set("categories.mctiers-io.gamemodes.Sword.slot", 44);
+        config.save(file.toFile());
+        assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
+        config.set("categories.mctiers-io.gamemodes.Sword.slot", 55);
+        config.save(file.toFile());
+        assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
+    }
+
+    @Test void extraMapsRequireAnExplicitCloudMapIntegration() throws Exception {
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
+        config.set("maps.arena1", "&aArena One");
+        config.set("integration.duel-command", "frostduels:frostduels duel %target% %kit% %rounds%");
+        config.save(file.toFile());
+        assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
+        config.set("integration.duel-command", "cloud:duel %target% %kit% %rounds% %map%");
+        config.save(file.toFile());
+        assertEquals(2, new Settings(file.toFile()).arenas.size());
+    }
+
+    @Test void arbitraryHeadingsAndMessagesCanBeChangedWithoutCode() throws Exception {
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
+        config.set("dialog.title", "&bFight %target%!");
+        config.set("menus.categories.title", "&dCustom Categories");
+        config.set("messages.self-duel", "&ePick somebody else.");
+        config.save(file.toFile());
+        Settings settings = new Settings(file.toFile());
+        assertEquals("&bFight %target%!", settings.text("dialog.title"));
+        assertEquals("&dCustom Categories", settings.text("menus.categories.title"));
+        assertEquals("&ePick somebody else.", settings.text("messages.self-duel"));
+    }
+
+    @Test void invalidYamlAndRecursiveCommandsAreRejected() throws Exception {
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
+        config.set("integration.duel-command", "duel %target% %kit% %rounds%");
+        config.save(file.toFile());
+        assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
+        Files.writeString(file, "dialog: [broken");
+        assertThrows(Exception.class, () -> new Settings(file.toFile()));
+    }
+}

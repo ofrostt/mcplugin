@@ -1,0 +1,17 @@
+name: FrostMenu
+version: 1.1.0
+main: dev.ofrostt.frostmenu.FrostMenu
+api-version: '1.21.11'
+description: Configurable kit menus and native duel confirmation dialogs for Paper.
+commands:
+  frostmenu:
+    description: Open the duel menu or reload its configuration.
+    usage: /frostmenu <player> | /frostmenu reload
+    aliases: [duel]
+permissions:
+  frostmenu.use:
+    default: true
+    description: Open FrostMenu and send duel challenges.
+  frostmenu.reload:
+    default: op
+    description: Reload FrostMenu configuration.
