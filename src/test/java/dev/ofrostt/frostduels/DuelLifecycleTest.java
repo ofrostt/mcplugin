@@ -29,12 +29,12 @@ class DuelLifecycleTest {
         admin = server.addPlayer("Admin"); admin.setOp(true);
         first = server.addPlayer("First"); second = server.addPlayer("Second");
         admin.teleport(new Location(world, 0, 65, 0));
-        server.dispatchCommand(admin, "fd setlobby");
+        server.dispatchCommand(admin, "duels setlobby");
         admin.getInventory().setItem(0, new ItemStack(Material.DIAMOND_SWORD));
-        server.dispatchCommand(admin, "fd kit save Sword-IO");
-        server.dispatchCommand(admin, "fd arena create arena1");
-        admin.teleport(new Location(world, 100, 65, 100)); server.dispatchCommand(admin, "fd arena setspawn arena1 1");
-        admin.teleport(new Location(world, 110, 65, 100)); server.dispatchCommand(admin, "fd arena setspawn arena1 2");
+        server.dispatchCommand(admin, "duels kit save Sword-IO");
+        server.dispatchCommand(admin, "duels arena create arena1");
+        admin.teleport(new Location(world, 100, 65, 100)); server.dispatchCommand(admin, "duels arena setspawn arena1 1");
+        admin.teleport(new Location(world, 110, 65, 100)); server.dispatchCommand(admin, "duels arena setspawn arena1 2");
         admin.teleport(plugin.store.lobby());
         first.teleport(plugin.store.lobby()); second.teleport(plugin.store.lobby());
         first.getInventory().setItem(3, new ItemStack(Material.EMERALD, 7));
@@ -144,10 +144,10 @@ class DuelLifecycleTest {
     }
 
     @Test void rejectsNonAdminKitChangesAndOverlappingArenas() {
-        server.dispatchCommand(first, "fd kit save StolenKit"); assertNull(plugin.store.kit("StolenKit"));
-        server.dispatchCommand(admin, "fd arena create overlap");
-        admin.teleport(new Location(world, 101, 65, 100)); server.dispatchCommand(admin, "fd arena setspawn overlap 1");
-        admin.teleport(new Location(world, 111, 65, 100)); server.dispatchCommand(admin, "fd arena setspawn overlap 2");
+        server.dispatchCommand(first, "duels kit save StolenKit"); assertNull(plugin.store.kit("StolenKit"));
+        server.dispatchCommand(admin, "duels arena create overlap");
+        admin.teleport(new Location(world, 101, 65, 100)); server.dispatchCommand(admin, "duels arena setspawn overlap 1");
+        admin.teleport(new Location(world, 111, 65, 100)); server.dispatchCommand(admin, "duels arena setspawn overlap 2");
         assertFalse(plugin.store.arena("overlap").ready());
     }
 
@@ -207,12 +207,12 @@ class DuelLifecycleTest {
 
     @Test void adminCanLoadEditAndResaveKitIncludingOffhandAndNewPlayerSlots() {
         admin.getInventory().clear();
-        server.dispatchCommand(admin, "fd kit load Sword-IO");
+        server.dispatchCommand(admin, "duels kit load Sword-IO");
         assertEquals(Material.DIAMOND_SWORD, admin.getInventory().getItem(0).getType());
         admin.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
         admin.getInventory().setItem(42, new ItemStack(Material.SADDLE));
-        server.dispatchCommand(admin, "fd kit save Sword-IO");
-        admin.getInventory().clear(); server.dispatchCommand(admin, "fd kit load Sword-IO");
+        server.dispatchCommand(admin, "duels kit save Sword-IO");
+        admin.getInventory().clear(); server.dispatchCommand(admin, "duels kit load Sword-IO");
         assertEquals(Material.SHIELD, admin.getInventory().getItemInOffHand().getType());
         assertEquals(Material.SADDLE, admin.getInventory().getItem(42).getType());
     }
@@ -244,18 +244,42 @@ class DuelLifecycleTest {
     }
 
     @Test void normalPlayersOnlyHaveDuelAndCannotUseOrCompleteAdminCommands() {
-        for (String alias : List.of("frostmenu", "frostduels", "fd", "frostduels:frostduels")) {
+        for (String removed : List.of("frostmenu", "frostduels", "fd")) assertNull(server.getPluginCommand(removed));
+        for (String alias : List.of("duels", "duels:duels")) {
             var command = server.getPluginCommand(alias);
             assertNotNull(command); assertFalse(command.testPermissionSilent(first));
             assertTrue(command.getTabCompleter().onTabComplete(first, command, alias, new String[]{""}).isEmpty());
             server.dispatchCommand(first, alias + " duel Second Sword-IO 1");
             assertTrue(plugin.requests.isEmpty());
         }
-        Set<String> commands = new HashSet<>(List.of("duel", "frostmenu", "fd", "frostduels", "frostduels:frostmenu"));
+        Set<String> commands = new HashSet<>(List.of("duel", "duels", "duels:duels"));
         server.getPluginManager().callEvent(new PlayerCommandSendEvent(first, commands));
         assertEquals(Set.of("duel"), commands);
         server.dispatchCommand(first, "duel Second");
         assertEquals(45, first.getOpenInventory().getTopInventory().getSize());
+    }
+
+    @Test void addCreatesOwnKitInEmptyMenuWithoutLoreOrEquipmentStatsAndRemoveClearsIt() {
+        admin.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_AXE));
+        server.dispatchCommand(first, "duels add Forbidden"); assertNull(plugin.store.kit("Forbidden"));
+        server.dispatchCommand(first, "duel Second");
+        var empty = first.getOpenInventory().getTopInventory();
+        assertEquals(Material.GRAY_STAINED_GLASS_PANE, empty.getItem(10).getType());
+        server.dispatchCommand(admin, "duels add Custom subtiers");
+        assertNotNull(plugin.store.kit("Custom"));
+        var menu = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(new java.io.File(plugin.getDataFolder(), "menu.yml"));
+        assertEquals("Custom", menu.getString("categories.subtiers.gamemodes.Custom.kit"));
+        assertEquals("DIAMOND_AXE", menu.getString("categories.subtiers.gamemodes.Custom.material"));
+        server.dispatchCommand(first, "duel Second");
+        var next = new org.bukkit.event.inventory.InventoryClickEvent(first.getOpenInventory(), org.bukkit.event.inventory.InventoryType.SlotType.CONTAINER,
+                44, org.bukkit.event.inventory.ClickType.LEFT, org.bukkit.event.inventory.InventoryAction.PICKUP_ALL);
+        server.getPluginManager().callEvent(next); server.getScheduler().performOneTick();
+        var icon = first.getOpenInventory().getTopInventory().getItem(10);
+        assertEquals(Material.DIAMOND_AXE, icon.getType()); assertFalse(icon.getItemMeta().hasLore());
+        assertTrue(icon.getItemMeta().hasItemFlag(org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES));
+        server.dispatchCommand(admin, "duels remove Custom"); assertNull(plugin.store.kit("Custom"));
+        menu = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(new java.io.File(plugin.getDataFolder(), "menu.yml"));
+        assertTrue(menu.getConfigurationSection("categories.subtiers.gamemodes").getKeys(false).isEmpty());
     }
 
     @Test void declineButtonRemovesChallengeWithoutStartingMatch() {
@@ -272,8 +296,8 @@ class DuelLifecycleTest {
         var core = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(coreFile);
         core.set("countdown-seconds", 10); core.save(coreFile);
         menu.set("dialog.button-width", 0); menu.save(menuFile);
-        server.dispatchCommand(admin, "frostmenu reload"); assertEquals(3, plugin.settings.countdown);
+        server.dispatchCommand(admin, "duels reload"); assertEquals(3, plugin.settings.countdown);
         menu.set("dialog.button-width", 300); menu.save(menuFile);
-        server.dispatchCommand(admin, "frostmenu reload"); assertEquals(10, plugin.settings.countdown);
+        server.dispatchCommand(admin, "duels reload"); assertEquals(10, plugin.settings.countdown);
     }
 }

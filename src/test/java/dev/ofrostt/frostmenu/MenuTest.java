@@ -25,6 +25,10 @@ public class MenuTest {
 
     @BeforeEach void setUp() {
         server = MockBukkit.mock(); plugin = MockBukkit.loadWith(RecordingFrostMenu.class, getClass().getResourceAsStream("/plugin.yml"));
+        try (var input = getClass().getResourceAsStream("/populated-menu.yml")) {
+            java.nio.file.Files.copy(input, new java.io.File(plugin.getDataFolder(), "menu.yml").toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            plugin.prepareMenuReload().run();
+        } catch (Exception ex) { throw new RuntimeException(ex); }
         for (var permission : plugin.getDescription().getPermissions()) server.getPluginManager().addPermission(permission);
         player = server.addPlayer("Challenger"); target = server.addPlayer("Opponent");
     }
@@ -92,7 +96,7 @@ public class MenuTest {
         assertEquals("You cannot duel yourself.", org.bukkit.ChatColor.stripColor(player.nextMessage()));
         server.dispatchCommand(player, "duel MissingPlayer");
         assertEquals("That player is offline or unavailable.", org.bukkit.ChatColor.stripColor(player.nextMessage()));
-        player.addAttachment(plugin, "frostduels.use", false);
+        player.addAttachment(plugin, "duels.use", false);
         server.dispatchCommand(player, "duel Opponent");
         assertEquals("You do not have permission to do that.", org.bukkit.ChatColor.stripColor(player.nextMessage()));
     }
@@ -107,7 +111,7 @@ public class MenuTest {
     }
 
     @Test void namespacedDuelAliasAlsoOpensKitPage() {
-        assertTrue(server.dispatchCommand(player, "frostduels:duel Opponent")); assertEquals("Queue: mctiers.io", title());
+        assertTrue(server.dispatchCommand(player, "duels:duel Opponent")); assertEquals("Queue: mctiers.io", title());
     }
 
     @Test void reloadUsesCustomPageHeadingAndFillerWithoutOverwritingConfig() throws Exception {
@@ -117,7 +121,7 @@ public class MenuTest {
         yaml.set("menus.filler.display-name", "&bFrost Border");
         yaml.save(file);
         PlayerMock admin = server.addPlayer("Admin"); admin.setOp(true);
-        server.dispatchCommand(admin, "frostmenu reload");
+        server.dispatchCommand(admin, "duels reload");
         server.dispatchCommand(player, "duel Opponent");
         assertEquals("Choose a kit for Opponent", title());
         var filler = player.getOpenInventory().getTopInventory().getItem(0).getItemMeta();
@@ -129,13 +133,13 @@ public class MenuTest {
     @Test void completedArenasAutomaticallyAppearAndConfirmedKitReachesIntegratedEngine() {
         PlayerMock admin = server.addPlayer("Admin"); admin.setOp(true);
         var world = server.addSimpleWorld("arena-world");
-        admin.teleport(new org.bukkit.Location(world, 0, 65, 0)); server.dispatchCommand(admin, "frostmenu setlobby");
+        admin.teleport(new org.bukkit.Location(world, 0, 65, 0)); server.dispatchCommand(admin, "duels setlobby");
         admin.getInventory().setItem(0, new org.bukkit.inventory.ItemStack(org.bukkit.Material.DIAMOND_SWORD));
-        server.dispatchCommand(admin, "frostmenu kit save Sword-IO");
-        server.dispatchCommand(admin, "frostmenu arena create arena1");
+        server.dispatchCommand(admin, "duels kit save Sword-IO");
+        server.dispatchCommand(admin, "duels arena create arena1");
         assertFalse(plugin.availableMaps().containsKey("arena1"));
-        admin.teleport(new org.bukkit.Location(world, 100, 65, 100)); server.dispatchCommand(admin, "frostmenu arena setspawn arena1 1");
-        admin.teleport(new org.bukkit.Location(world, 110, 65, 100)); server.dispatchCommand(admin, "frostmenu arena setspawn arena1 2");
+        admin.teleport(new org.bukkit.Location(world, 100, 65, 100)); server.dispatchCommand(admin, "duels arena setspawn arena1 1");
+        admin.teleport(new org.bukkit.Location(world, 110, 65, 100)); server.dispatchCommand(admin, "duels arena setspawn arena1 2");
         assertEquals(java.util.Set.of("random", "arena1"), plugin.availableMaps().keySet());
         server.dispatchCommand(player, "duel Opponent"); click(40);
         plugin.confirmedSession.map = "arena1";

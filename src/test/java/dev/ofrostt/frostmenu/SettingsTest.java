@@ -14,19 +14,20 @@ class SettingsTest {
     @BeforeEach void setUp() throws Exception {
         MockBukkit.mock();
         file = temp.resolve("config.yml");
-        try (var input = getClass().getResourceAsStream("/menu.yml")) {
+        try (var input = getClass().getResourceAsStream("/populated-menu.yml")) {
             Files.copy(input, file);
         }
     }
 
     @AfterEach void tearDown() { MockBukkit.unmock(); }
 
-    @Test void defaultConfigLoadsAllSampleCategoriesAndExactKitIds() throws Exception {
+    @Test void defaultConfigHasNoPresetKits() throws Exception {
+        try (var input = getClass().getResourceAsStream("/menu.yml")) {
+            Files.copy(input, file, StandardCopyOption.REPLACE_EXISTING);
+        }
         Settings settings = new Settings(file.toFile());
         assertEquals(2, settings.categories.size());
-        assertEquals(12, settings.categories.stream().mapToInt(c -> c.modes().size()).sum());
-        var elytra = settings.categories.getFirst().modes().stream().filter(m -> m.id().equals("Elytra-IO")).findFirst().orElseThrow();
-        assertEquals("Elytra-IO", elytra.kit()); // No accidental -IO-IO suffix.
+        assertEquals(0, settings.categories.stream().mapToInt(c -> c.modes().size()).sum());
         assertEquals("random", settings.arenas.getFirst().id());
     }
 

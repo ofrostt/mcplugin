@@ -67,6 +67,7 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
             if (!menu.exists()) {
                 saveResource("menu.yml", false);
             }
+            MenuMigration.clearPresetMenu(menu.toPath());
             settings = new Settings(menu);
         } catch (Exception ex) {
             getLogger().severe("Invalid menu.yml: " + ex.getMessage());
@@ -100,9 +101,49 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
         };
     }
 
+    @Override protected void editMenuKit(String id, org.bukkit.Material material, String page, boolean remove) throws Exception {
+        File file = new File(getDataFolder(), "menu.yml");
+        var yaml = new org.bukkit.configuration.file.YamlConfiguration(); yaml.load(file);
+        var categories = yaml.getConfigurationSection("categories");
+        if (categories == null) throw new IllegalArgumentException("Missing categories");
+        boolean found = false;
+        for (String category : categories.getKeys(false)) {
+            var modes = yaml.getConfigurationSection("categories." + category + ".gamemodes");
+            if (modes == null) continue;
+            for (String key : new ArrayList<>(modes.getKeys(false))) {
+                if (!id.equals(modes.getString(key + ".kit"))) continue;
+                found = true;
+                if (remove) modes.set(key, null);
+                else modes.set(key + ".material", material.name());
+            }
+        }
+        if (!remove && !found) {
+            Settings.Category selected = page == null ? settings.categories.getFirst() : settings.categories.stream()
+                    .filter(category -> category.id().equals(page)).findFirst().orElseThrow(() -> new IllegalArgumentException("Unknown page"));
+            Set<Integer> occupied = new HashSet<>();
+            for (var mode : selected.modes()) occupied.add(mode.icon().slot());
+            for (var control : List.of(settings.previousPage, settings.nextPage, settings.previousKit, settings.nextKit, settings.confirm, settings.back)) occupied.add(control.slot());
+            int slot = -1;
+            for (int candidate = 10; candidate < selected.rows() * 9 - 9; candidate++) {
+                if (candidate % 9 != 0 && candidate % 9 != 8 && !occupied.contains(candidate)) { slot = candidate; break; }
+            }
+            if (slot < 0) throw new IllegalArgumentException("Page full");
+            String path = "categories." + selected.id() + ".gamemodes." + id;
+            yaml.set(path + ".kit", id); yaml.set(path + ".material", material.name());
+            yaml.set(path + ".display-name", "&b" + id); yaml.set(path + ".dialog-name", "&b" + id);
+            yaml.set(path + ".slot", slot); yaml.set(path + ".lore", List.of());
+        }
+        java.nio.file.Path temporary = java.nio.file.Files.createTempFile(getDataFolder().toPath(), "menu-edit-", ".yml");
+        try {
+            yaml.save(temporary.toFile()); new Settings(temporary.toFile());
+            java.nio.file.Files.move(temporary, file.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            prepareMenuReload().run();
+        } finally { java.nio.file.Files.deleteIfExists(temporary); }
+    }
+
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) { message(sender, "players-only", Map.of()); return true; }
-        if (!player.hasPermission("frostduels.use")) { message(player, "no-permission", Map.of()); return true; }
+        if (!player.hasPermission("duels.use")) { message(player, "no-permission", Map.of()); return true; }
         if (args.length != 1) { message(player, "usage", Map.of()); return true; }
         Player target = Bukkit.getPlayerExact(args[0]);
         if (target == null || !player.canSee(target)) { message(player, "player-not-found", Map.of()); return true; }
@@ -118,7 +159,7 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
     private void openMenu(Player player, Session session, Settings.Category category) {
         if (category != null) {
             session.categoryName = plain(category.icon().name());
-            if (settings.paged) session.mode = category.modes().get(session.selections.getOrDefault(category.id(), 0));
+            if (settings.paged) session.mode = category.modes().isEmpty() ? null : category.modes().get(session.selections.getOrDefault(category.id(), 0));
         }
         Menu holder = new Menu(session, category);
         String title = category == null ? settings.text("menus.categories.title") : category.title();
@@ -138,7 +179,8 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
             for (Settings.Mode mode : category.modes()) {
                 ItemStack stack = item(mode.icon(), player, session);
                 if (settings.paged) stack.editMeta(meta -> meta.setEnchantmentGlintOverride(mode == session.mode));
-                if (settings.paged && mode == session.mode) stack.editMeta(meta -> {
+                if (settings.paged && mode == session.mode && settings.yaml.getBoolean("menus.show-lore", false)
+                        && !settings.yaml.getString("menus.navigation.selected-lore", "").isBlank()) stack.editMeta(meta -> {
                     meta.setEnchantmentGlintOverride(true);
                     List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
                     lore.add(render(settings.text("menus.navigation.selected-lore"), player, session));
@@ -151,7 +193,7 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
                 if (page > 0) holder.inventory.setItem(settings.previousPage.slot(), item(settings.previousPage, player, session));
                 if (page + 1 < settings.categories.size()) holder.inventory.setItem(settings.nextPage.slot(), item(settings.nextPage, player, session));
                 for (Settings.Icon icon : List.of(settings.previousKit, settings.confirm, settings.nextKit)) {
-                    holder.inventory.setItem(icon.slot(), item(icon, player, session));
+                    if (session.mode != null) holder.inventory.setItem(icon.slot(), item(icon, player, session));
                 }
             } else holder.inventory.setItem(settings.back.slot(), item(settings.back, player, session));
         }
@@ -162,7 +204,9 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
         ItemStack item = new ItemStack(icon.material());
         item.editMeta(meta -> {
             meta.displayName(render(icon.name(), player, session));
-            meta.lore(icon.lore().stream().map(line -> render(line, player, session)).toList());
+            if (settings.yaml.getBoolean("menus.show-lore", false)) meta.lore(icon.lore().stream().map(line -> render(line, player, session)).toList());
+            else meta.lore(List.of());
+            if (settings.yaml.getBoolean("menus.hide-item-tooltips", true)) meta.addItemFlags(org.bukkit.inventory.ItemFlag.values());
         });
         return item;
     }
@@ -211,7 +255,8 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
         } else if (slot == settings.nextPage.slot()) {
             if (page + 1 >= settings.categories.size()) return;
             destination = settings.categories.get(page + 1);
-        } else if (slot == settings.previousKit.slot()) selection = Math.floorMod(selection - 1, category.modes().size());
+        } else if (category.modes().isEmpty()) return;
+        else if (slot == settings.previousKit.slot()) selection = Math.floorMod(selection - 1, category.modes().size());
         else if (slot == settings.nextKit.slot()) selection = (selection + 1) % category.modes().size();
         else if (!openDialog) {
             selection = -1;
@@ -375,7 +420,7 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
             if (player.isOnline()) message(player, "expired", Map.of());
             return false;
         }
-        if (!player.hasPermission("frostduels.use")) {
+        if (!player.hasPermission("duels.use")) {
             sessions.remove(player.getUniqueId(), session); message(player, "no-permission", Map.of()); return false;
         }
         Player target = Bukkit.getPlayer(session.target);
@@ -403,6 +448,8 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
 
     // Upgrade only the previous shipped labels in memory; retain custom text and server config files.
     private String modernize(String text) {
+        text = text.replace("FrostMenu &8»", "Duels &8»").replace("FrostDuels &8»", "Duels &8»");
+        if (text.contains("/frostmenu <player>")) return "&bDuels &8» &bInvalid arguments! Use: /duel <player>";
         return switch (text) {
             case "&a♟ &fRounds" -> "%rounds-icon% &fRounds";
             case "&f📖 View Advanced Options" -> "%advanced-icon% &fView Advanced Options";
@@ -411,9 +458,9 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
             case "&7Kit: &a%gamemode%" -> "&7Kit: %kit-icon% &a&l%gamemode-name%";
             case "&7Arenas, kits, and match rules are managed by FrostDuels." -> "&7Change the rules below, then click Apply. Back discards unsaved edits.";
             case "&6Confirm Duel! ⚠" -> "&6Confirm Duel!";
-            case "&bFrostMenu &8» &7/frostmenu <player> or /frostmenu reload",
-                 "&bFrostDuels &8» &7/duel <player>" -> "&bFrostMenu &8» &bⓘ Invalid arguments! Use: /duel <player>";
-            case "&cThis menu has expired. Open /frostmenu <player> again." -> "&cThis menu has expired. Open /duel <player> again.";
+            case "&bDuels &8» &7/duels <player> or /duels reload",
+                 "&bDuels &8» &7/duel <player>" -> "&bDuels &8» &bInvalid arguments! Use: /duel <player>";
+            case "&cThis menu has expired. Open /duels <player> again." -> "&cThis menu has expired. Open /duel <player> again.";
             default -> text;
         };
     }
@@ -425,7 +472,7 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         if (args.length != 1) return List.of();
         List<String> names = new ArrayList<>();
-        if (sender.hasPermission("frostduels.use") && sender instanceof Player viewer) {
+        if (sender.hasPermission("duels.use") && sender instanceof Player viewer) {
             for (Player target : Bukkit.getOnlinePlayers()) if (!target.equals(viewer) && viewer.canSee(target)) names.add(target.getName());
         }
         return names.stream().filter(name -> name.toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT))).sorted().toList();

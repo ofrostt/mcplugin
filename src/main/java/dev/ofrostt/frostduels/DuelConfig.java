@@ -40,11 +40,9 @@ final class DuelConfig {
     String text(String key) {
         String value = yaml.getString("messages." + key);
         if (value == null) throw new IllegalArgumentException("Missing message: " + key);
-        if (key.equals("command-blocked") && value.equals("&cYou can only use /frostduels leave during a duel.")) return "&cUse the Leave Duel button to forfeit.";
-        if (key.equals("prefix") && value.equals("&bFrostDuels &8» &r")) return "&bFrostMenu &8» &r";
-        if (key.equals("bad-arguments") && value.equals("&cInvalid arguments. Use /frostmenu help.")) return "&bⓘ Invalid arguments! Use: /frostmenu help";
-        if (key.equals("help") && value.equals("&7/duel <player> — respond to challenges and leave matches using the chat buttons.")) return "&b" + value.substring(2);
-        if (key.equals("admin-help") && value.equals("&7/frostmenu kit save|load|delete|list [id], /frostmenu arena create|delete|list|setspawn|snapshot|reset [id], /frostmenu setlobby, /frostmenu stop <player>, /frostmenu recover <player>, /frostmenu reload")) return "&b" + value.substring(2);
-        return value;
+        if (key.equals("admin-help") && (value.contains("kit save|load|delete|list") || value.startsWith("&b/duels add <kit> [page] |"))) return yaml.getDefaults().getString("messages.admin-help");
+        if (key.equals("prefix") && (value.equals("&bFrostMenu &8» &r") || value.equals("&bFrostDuels &8» &r"))) return "&bDuels &8» &r";
+        if (key.equals("command-blocked") && value.contains("leave during a duel")) return "&cUse the Leave Duel button to forfeit.";
+        return value.replace("/frostmenu", "/duels").replace("/frostduels", "/duels");
     }
 }

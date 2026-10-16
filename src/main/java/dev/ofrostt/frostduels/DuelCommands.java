@@ -10,7 +10,7 @@ final class DuelCommands implements CommandExecutor, TabCompleter {
     DuelCommands(FrostDuels plugin) { this.plugin = plugin; }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.hasPermission("frostduels.admin")) { plugin.tell(sender, "no-permission"); return true; }
+        if (!sender.hasPermission("duels.admin")) { plugin.tell(sender, "no-permission"); return true; }
         if (args.length == 0 || args[0].equalsIgnoreCase("help")) { plugin.tell(sender, "admin-help"); return true; }
         String action = args[0].toLowerCase(Locale.ROOT);
         if (sender instanceof Player player && plugin.playing.containsKey(player.getUniqueId()) && !action.equals("stop")) {
@@ -26,6 +26,27 @@ final class DuelCommands implements CommandExecutor, TabCompleter {
 
     private void admin(CommandSender sender, String action, String[] args) throws Exception {
         switch (action) {
+            case "add" -> {
+                if (args.length < 2 || args.length > 3) { plugin.tell(sender, "bad-arguments"); return; }
+                if (!(sender instanceof Player player)) { plugin.tell(sender, "players-only"); return; }
+                String id = DuelStore.id(args[1]);
+                Material icon = player.getInventory().getItemInMainHand().getType();
+                if (icon.isAir()) icon = Material.CHEST;
+                plugin.editMenuKit(id, icon, args.length == 3 ? args[2] : null, false);
+                plugin.store.saveKit(id, player); plugin.tell(sender, "saved", Map.of("id", id));
+            }
+            case "remove" -> {
+                if (args.length != 2) { plugin.tell(sender, "bad-arguments"); return; }
+                String id = DuelStore.id(args[1]);
+                if (plugin.store.kit(id) == null) { plugin.tell(sender, "not-found"); return; }
+                plugin.editMenuKit(id, Material.CHEST, null, true);
+                plugin.store.delete("kits", id); plugin.tell(sender, "deleted", Map.of("id", id));
+            }
+            case "list" -> data(sender, "kit", new String[]{"kit", "list"});
+            case "load" -> {
+                if (args.length != 2) { plugin.tell(sender, "bad-arguments"); return; }
+                data(sender, "kit", new String[]{"kit", "load", args[1]});
+            }
             case "reload" -> {
                 if (args.length != 1) { plugin.tell(sender, "bad-arguments"); return; }
                 if (!plugin.playing.isEmpty()) { plugin.tell(sender, "reload-busy"); return; }
@@ -127,19 +148,21 @@ final class DuelCommands implements CommandExecutor, TabCompleter {
     }
 
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.hasPermission("frostduels.admin")) return List.of();
+        if (!sender.hasPermission("duels.admin")) return List.of();
         List<String> options = new ArrayList<>();
         if (args.length == 1) {
-            options.addAll(List.of("help", "kit", "arena", "setlobby", "stop", "recover", "reload"));
+            options.addAll(List.of("help", "add", "remove", "load", "list", "kit", "arena", "setlobby", "stop", "recover", "reload"));
+        } else if (args.length == 2 && Set.of("remove", "load", "add").contains(args[0])) {
+            options.addAll(plugin.store.ids("kits"));
         } else if (args.length == 2 && Set.of("stop", "recover").contains(args[0])) {
             for (Player player : Bukkit.getOnlinePlayers()) if (!(sender instanceof Player viewer) || viewer.canSee(player)) options.add(player.getName());
-        } else if (args.length == 2 && sender.hasPermission("frostduels.admin")) {
+        } else if (args.length == 2 && sender.hasPermission("duels.admin")) {
             if (args[0].equals("kit")) options.addAll(List.of("save", "load", "delete", "list"));
             if (args[0].equals("arena")) options.addAll(List.of("create", "delete", "list", "setspawn", "snapshot", "reset"));
         } else if (args.length == 3) {
-            if (args[0].equals("kit") && sender.hasPermission("frostduels.admin")) options.addAll(plugin.store.ids("kits"));
-            if (args[0].equals("arena") && sender.hasPermission("frostduels.admin")) options.addAll(plugin.store.ids("arenas"));
-        } else if (args.length == 4 && args[0].equals("arena") && args[1].equals("setspawn") && sender.hasPermission("frostduels.admin")) options.addAll(List.of("1", "2"));
+            if (args[0].equals("kit") && sender.hasPermission("duels.admin")) options.addAll(plugin.store.ids("kits"));
+            if (args[0].equals("arena") && sender.hasPermission("duels.admin")) options.addAll(plugin.store.ids("arenas"));
+        } else if (args.length == 4 && args[0].equals("arena") && args[1].equals("setspawn") && sender.hasPermission("duels.admin")) options.addAll(List.of("1", "2"));
         return options.stream().filter(value -> value.toLowerCase(Locale.ROOT).startsWith(args[args.length - 1].toLowerCase(Locale.ROOT))).sorted().toList();
     }
 }

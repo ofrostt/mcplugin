@@ -1,5 +1,5 @@
-name: FrostDuels
-version: 2.0.0
+name: Duels
+version: 2.1.0
 main: dev.ofrostt.frostmenu.FrostMenu
 api-version: '1.21.11'
 description: Unified kit menus, native dialogs, and dedicated-server duels.
@@ -7,15 +7,14 @@ commands:
   duel:
     description: Challenge a player using the kit selection menu.
     usage: /duel <player>
-  frostmenu:
+  duels:
     description: Administrator kit, arena, and configuration management.
-    usage: /frostmenu help
-    aliases: [frostduels, fd]
-    permission: frostduels.admin
+    usage: /duels help
+    permission: duels.admin
 permissions:
-  frostduels.use:
+  duels.use:
     default: true
     description: Open /duel and respond to challenges using buttons.
-  frostduels.admin:
+  duels.admin:
     default: op
-    description: Use /frostmenu and its administrator-only aliases.
+    description: Use /duels.

@@ -60,7 +60,7 @@ final class Settings {
                 "min-build-y", "max-build-y", "starting-food", "starting-saturation")) text("dialog.advanced.labels." + key);
         timeout = integer("session-timeout-seconds", 10, 3600);
         back = icon(section("menus.back"), 54);
-        for (String path : List.of("menus.categories.title", "menus.navigation.selected-lore", "dialog.title", "dialog.rounds.label",
+        for (String path : List.of("menus.categories.title", "dialog.title", "dialog.rounds.label",
                 "dialog.buttons.advanced", "dialog.buttons.map", "dialog.buttons.send", "dialog.buttons.close",
                 "dialog.buttons.back", "dialog.buttons.apply", "dialog.advanced.title", "dialog.map-title",
                 "messages.usage", "messages.players-only", "messages.no-permission", "messages.player-not-found",
@@ -79,7 +79,7 @@ final class Settings {
             if (rows < 1 || rows > 6 || (!paged && back.slot() >= rows * 9)) fail("Invalid rows/back slot for " + id);
             String title = required(cat, "title");
             ConfigurationSection modes = cat.getConfigurationSection("gamemodes");
-            if (modes == null || modes.getKeys(false).isEmpty()) fail("No gamemodes in " + id);
+            if (modes == null) fail("Missing gamemodes section in " + id);
             Set<Integer> slots = new HashSet<>();
             if (paged) {
                 for (Icon control : List.of(previousPage, nextPage, previousKit, nextKit, confirm)) {

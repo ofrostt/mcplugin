@@ -45,6 +45,8 @@ public class FrostDuels extends JavaPlugin {
     private final LegacyComponentSerializer colors = LegacyComponentSerializer.legacyAmpersand();
 
     @Override public void onEnable() {
+        try { DataMigration.copyLegacy(getDataFolder().toPath()); }
+        catch (Exception ex) { getLogger().severe("Data migration failed: " + ex.getMessage()); getServer().getPluginManager().disablePlugin(this); return; }
         saveDefaultConfig();
         try {
             settings = readSettings(); store = new DuelStore(getDataFolder()); validateArenas(settings);
@@ -54,17 +56,18 @@ public class FrostDuels extends JavaPlugin {
             getLogger().severe("Startup refused: " + ex.getMessage()); getServer().getPluginManager().disablePlugin(this); return;
         }
         DuelCommands commands = new DuelCommands(this);
-        Objects.requireNonNull(getCommand("frostmenu")).setExecutor(commands);
-        getCommand("frostmenu").setTabCompleter(commands);
+        Objects.requireNonNull(getCommand("duels")).setExecutor(commands);
+        getCommand("duels").setTabCompleter(commands);
         updateAdminPermissionMessage();
         DuelEvents events = new DuelEvents(this);
         getServer().getPluginManager().registerEvents(events, this); events.cleanupLoaded();
         getServer().getScheduler().runTaskTimer(this, this::tick, 20, 20);
         for (Player player : Bukkit.getOnlinePlayers()) recover(player, false);
     }
+    protected void editMenuKit(String id, org.bukkit.Material material, String page, boolean remove) throws Exception {}
     protected Runnable prepareMenuReload() throws Exception { return () -> {}; }
     void updateAdminPermissionMessage() {
-        Objects.requireNonNull(getCommand("frostmenu")).permissionMessage(text(settings.text("prefix") + settings.text("no-permission"), Map.of()));
+        Objects.requireNonNull(getCommand("duels")).permissionMessage(text(settings.text("prefix") + settings.text("no-permission"), Map.of()));
     }
     protected Set<String> selectableArenas() {
         Set<String> result = new TreeSet<>();
@@ -107,7 +110,7 @@ public class FrostDuels extends JavaPlugin {
     protected void request(Player sender, Player target, String kit, int rounds, String map, Rules selectedRules) {
         Rules checkedRules = Rules.fromValues(selectedRules.values());
         if (sender.equals(target)) { tell(sender, "self"); return; }
-        if (!sender.hasPermission("frostduels.use") || !target.hasPermission("frostduels.use") || !available(sender) || !available(target)) { tell(sender, "unavailable"); return; }
+        if (!sender.hasPermission("duels.use") || !target.hasPermission("duels.use") || !available(sender) || !available(target)) { tell(sender, "unavailable"); return; }
         if (store.kit(kit) == null || (!map.equals("random") && store.arena(map) == null)) { tell(sender, "not-found"); return; }
         if (store.lobby() == null || store.lobby().getWorld() == null || store.arenas().stream().noneMatch(DuelStore.Arena::ready)) { tell(sender, "not-ready"); return; }
         if (rounds < 1 || rounds > settings.maxRounds) { tell(sender, "invalid-rounds", Map.of("max", "" + settings.maxRounds)); return; }
@@ -147,7 +150,7 @@ public class FrostDuels extends JavaPlugin {
         if (requests.get(key) != request || request.expires <= System.currentTimeMillis() || sender == null || !target.canSee(sender)) {
             tell(target, "expired"); return;
         }
-        if (!target.hasPermission("frostduels.use")) { tell(target, "no-permission"); return; }
+        if (!target.hasPermission("duels.use")) { tell(target, "no-permission"); return; }
         if (accepted) accept(target, sender);
         else if (requests.remove(key, request)) { tell(target, "denied"); tell(sender, "denied-sender", Map.of("player", target.getName())); }
     }
@@ -155,7 +158,7 @@ public class FrostDuels extends JavaPlugin {
     void accept(Player target, Player sender) {
         Request request = requests.remove(new RequestKey(sender.getUniqueId(), target.getUniqueId()));
         if (request == null || request.expires <= System.currentTimeMillis()) { tell(target, "expired"); return; }
-        if (!available(sender) || !available(target) || !sender.hasPermission("frostduels.use")) { tell(target, "unavailable"); return; }
+        if (!available(sender) || !available(target) || !sender.hasPermission("duels.use")) { tell(target, "unavailable"); return; }
         DuelStore.Kit kit = store.kit(request.kit);
         if (kit == null) { tell(target, "not-found"); return; }
         if (store.lobby() == null || store.lobby().getWorld() == null) { tell(target, "not-ready"); return; }

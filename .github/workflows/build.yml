@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -30,12 +30,24 @@ jobs:
       - name: Collect plugin JAR
         run: |
           mkdir -p dist
-          cp target/FrostDuels-*.jar dist/
+          cp target/Duels.jar dist/
 
       - name: Upload downloadable plugins
         uses: actions/upload-artifact@v4
         with:
-          name: FrostDuels
+          name: Duels
           path: dist/*.jar
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish direct JAR download
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          release_tag="build-${BUILD_COMMIT}"
+          if ! gh release view "$release_tag" >/dev/null 2>&1; then
+            gh release create "$release_tag" --target "$BUILD_COMMIT" --title "Duels — build ${GITHUB_RUN_NUMBER}" --notes "Download Duels.jar below and place it in your Paper 1.21.11 server plugins folder. Requires Java 21. See README for commands and migration details." --prerelease
+          fi
+          gh release upload "$release_tag" dist/Duels.jar --clobber

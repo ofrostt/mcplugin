@@ -1,5 +1,5 @@
 # Dedicated duel server. Terrain edits need a saved arena snapshot before a match can start.
-# Text uses & color codes. All FrostDuels chat text and request button labels live here.
+# Text uses & color codes. All Duels chat text and request button labels live here.
 # Kits, arenas and lobby are stored separately in data.yml. Never edit recovery/ manually.
 request-expiry-seconds: 60
 request-cooldown-seconds: 3
@@ -40,12 +40,25 @@ rules:
 #     max-build-y: 120
 kit-rules: {}
 messages:
-  prefix: '&bFrostMenu &8» &r'
+  prefix: '&bDuels &8» &r'
   help: '&b/duel <player> — respond to challenges and leave matches using the chat buttons.'
-  admin-help: '&b/frostmenu kit save|load|delete|list [id], /frostmenu arena create|delete|list|setspawn|snapshot|reset [id], /frostmenu setlobby, /frostmenu stop <player>, /frostmenu recover <player>, /frostmenu reload'
+  admin-help: |-
+    &bCommands:
+    &b/duels add <kit> [page] &7— Save your loadout and add its icon
+    &b/duels load <kit> &7— Load a kit for editing
+    &b/duels remove <kit> &7— Delete a kit and its icon
+    &b/duels list &7— List saved kits
+    &b/duels arena create <id>
+    &b/duels arena setspawn <id> <1|2>
+    &b/duels arena snapshot <id> <minY> <maxY>
+    &b/duels arena reset|delete <id>
+    &b/duels arena list
+    &b/duels setlobby
+    &b/duels stop|recover <player>
+    &b/duels reload
   no-permission: '&cYou do not have permission.'
   players-only: '&cThis command requires a player.'
-  bad-arguments: '&bⓘ Invalid arguments! Use: /frostmenu help'
+  bad-arguments: '&bInvalid arguments! Use: /duels help'
   not-found: '&cThat online player, kit, arena, or request does not exist.'
   invalid-id: '&cUse 1–48 letters, digits, underscores, or hyphens for IDs. random is reserved for maps.'
   self: '&cYou cannot duel yourself.'
@@ -90,9 +103,9 @@ messages:
   leave-hover: '&cForfeit this match and return to the lobby'
   recovered: '&aYour pre-duel items and player state have been restored.'
   no-recovery: '&7You have no pending recovery.'
-  snapshot-required: '&cThis arena needs /frostmenu arena snapshot <id> <minY> <maxY> before terrain changes are allowed.'
+  snapshot-required: '&cThis arena needs /duels arena snapshot <id> <minY> <maxY> before terrain changes are allowed.'
   snapshot-limit: '&cSnapshot exceeds 1000000 blocks, has invalid Y bounds, or excludes a spawn. Reduce arena padding or height.'
-  arena-locked: '&cArena reset failed or is pending. An administrator must use /frostmenu arena reset <id> and check the console.'
+  arena-locked: '&cArena reset failed or is pending. An administrator must use /duels arena reset <id> and check the console.'
   rules-blocked: '&cThat action is disabled by this kit’s rules or outside its allowed height.'
 
   # Sent with each challenge so the opponent can see the rules before accepting.
