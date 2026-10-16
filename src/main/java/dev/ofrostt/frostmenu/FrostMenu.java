@@ -23,6 +23,7 @@ import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.*;
 import dev.ofrostt.frostduels.FrostDuels;
+import dev.ofrostt.frostduels.Rules;
 
 public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, TabCompleter {
     private final Map<UUID, Session> sessions = new HashMap<>();
@@ -35,6 +36,8 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
         final long expires;
         Settings.Mode mode;
         int rounds;
+        Rules rules;
+        String rulesKit;
         String map;
         long view;
         String categoryName = "";
@@ -119,12 +122,14 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
         }
         Menu holder = new Menu(session, category);
         String title = category == null ? settings.text("menus.categories.title") : category.title();
-        if (settings.paged && (title.equals("&aDuel &f%target%") || title.equals("&8Queue: Famous Kits"))) title = "&8Queue: %category%";
         holder.inventory = Bukkit.createInventory(holder, (category == null ? settings.categoryRows : category.rows()) * 9,
                 render(title, player, session));
         if (settings.fillerEnabled) {
             ItemStack filler = new ItemStack(settings.fillerMaterial);
-            filler.editMeta(meta -> meta.displayName(Component.text(" ")));
+            filler.editMeta(meta -> {
+                meta.displayName(render(settings.yaml.getString("menus.filler.display-name", " "), player, session));
+                meta.lore(settings.lines("menus.filler.lore").stream().map(line -> render(line, player, session)).toList());
+            });
             for (int slot = 0; slot < holder.inventory.getSize(); slot++) holder.inventory.setItem(slot, filler);
         }
         if (category == null) {
@@ -238,6 +243,9 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
     }
 
     protected void confirm(Player player, Session session) {
+        if (!session.mode.kit().equals(session.rulesKit)) {
+            session.rules = defaultRules(session.mode.kit()); session.rulesKit = session.mode.kit();
+        }
         long view = ++session.view;
         var rounds = DialogInput.numberRange("rounds", render(settings.text("dialog.rounds.label"), player, session),
                 settings.minRounds, settings.maxRounds).initial((float) session.rounds).step(1f).width(settings.sliderWidth).build();
@@ -258,9 +266,44 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
 
     private void advanced(Player player, Session session) {
         long view = ++session.view;
-        show(player, settings.text("dialog.advanced.title"), session, settings.lines("dialog.advanced.body"), List.of(),
-                List.of(button("back", player, session, view, response -> confirm(player, session))),
-                button("close", player, session, view, response -> sessions.remove(player.getUniqueId(), session)));
+        List<DialogInput> inputs = new ArrayList<>();
+        for (var entry : session.rules.values().entrySet()) {
+            String key = entry.getKey();
+            Component label = render(settings.text("dialog.advanced.labels." + key), player, session);
+            if (entry.getValue() instanceof Boolean flag) {
+                inputs.add(DialogInput.bool(key, label).initial(flag).build());
+            } else {
+                inputs.add(DialogInput.text(key, label).initial(entry.getValue().toString())
+                        .width(settings.sliderWidth).maxLength(16).build());
+            }
+        }
+        show(player, settings.text("dialog.advanced.title"), session, settings.lines("dialog.advanced.body"), inputs,
+                List.of(button("apply", player, session, view, response -> {
+                    try {
+                        session.rules = readAdvanced(session.rules, response);
+                        confirm(player, session);
+                    } catch (IllegalArgumentException ex) {
+                        message(player, "invalid-rules", values(player, session)); advanced(player, session);
+                    }
+                })), button("back", player, session, view, response -> confirm(player, session)));
+    }
+
+    static Rules readAdvanced(Rules previous, DialogResponseView response) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        for (var entry : previous.values().entrySet()) {
+            String key = entry.getKey();
+            if (entry.getValue() instanceof Boolean) {
+                Boolean value = response.getBoolean(key);
+                if (value == null) throw new IllegalArgumentException("Missing toggle");
+                values.put(key, value);
+            } else {
+                String value = response.getText(key);
+                if (value == null) throw new IllegalArgumentException("Missing number");
+                if (entry.getValue() instanceof Integer) values.put(key, Integer.parseInt(value.trim()));
+                else values.put(key, Float.parseFloat(value.trim()));
+            }
+        }
+        return Rules.fromValues(values);
     }
 
     private void maps(Player player, Session session) {
@@ -270,7 +313,7 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
             buttons.add(ActionButton.create(render(arena.getValue(), player, session), null, settings.buttonWidth,
                     callback(player, session, view, response -> { session.map = arena.getKey(); confirm(player, session); })));
         }
-        show(player, settings.text("dialog.map-title"), session, List.of(), List.of(), buttons,
+        show(player, settings.text("dialog.map-title"), session, settings.lines("dialog.map-body"), List.of(), buttons,
                 button("back", player, session, view, response -> confirm(player, session)));
     }
 
@@ -312,7 +355,8 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
         Player target = Bukkit.getPlayer(session.target);
         sessions.remove(player.getUniqueId(), session);
         if (target == null) { message(player, "player-not-found", Map.of()); return; }
-        try { request(player, target, session.mode.kit(), session.rounds, session.map); }
+        try { request(player, target, session.mode.kit(), session.rounds, session.map,
+                session.rules == null ? defaultRules(session.mode.kit()) : session.rules); }
         catch (Exception ex) { getLogger().severe("Duel request failed: " + ex.getMessage()); message(player, "request-failed", Map.of()); }
     }
 
@@ -365,6 +409,7 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
             case "&f✦ Map Selector &6(%map-name%&6)" -> "%map-icon% &fMap Selector &6(%map-name%&6)";
             case "&a♟ &fSend Duel" -> "%rounds-icon% &fSend Duel";
             case "&7Kit: &a%gamemode%" -> "&7Kit: %kit-icon% &a&l%gamemode-name%";
+            case "&7Arenas, kits, and match rules are managed by FrostDuels." -> "&7Change the rules below, then click Apply. Back discards unsaved edits.";
             case "&6Confirm Duel! ⚠" -> "&6Confirm Duel!";
             case "&bFrostMenu &8» &7/frostmenu <player> or /frostmenu reload",
                  "&bFrostDuels &8» &7/duel <player>" -> "&bFrostMenu &8» &bⓘ Invalid arguments! Use: /duel <player>";

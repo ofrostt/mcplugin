@@ -55,6 +55,9 @@ final class Settings {
             icons.put(key, DialogText.sprite(text("dialog.icons." + key + ".atlas"), text("dialog.icons." + key + ".sprite")));
         }
         dialogIcons = Map.copyOf(icons);
+        for (String key : List.of("saturation", "regeneration", "natural-regeneration", "potion-regeneration", "hunger",
+                "terrain-damage", "building", "breaking", "explosion-terrain-damage", "min-break-y", "max-break-y",
+                "min-build-y", "max-build-y", "starting-food", "starting-saturation")) text("dialog.advanced.labels." + key);
         timeout = integer("session-timeout-seconds", 10, 3600);
         back = icon(section("menus.back"), 54);
         for (String path : List.of("menus.categories.title", "menus.navigation.selected-lore", "dialog.title", "dialog.rounds.label",
@@ -62,7 +65,7 @@ final class Settings {
                 "dialog.buttons.back", "dialog.buttons.apply", "dialog.advanced.title", "dialog.map-title",
                 "messages.usage", "messages.players-only", "messages.no-permission", "messages.player-not-found",
                 "messages.self-duel", "messages.expired",
-                "messages.invalid-response", "messages.request-failed")) text(path);
+                "messages.invalid-response", "messages.invalid-rules", "messages.request-failed")) text(path);
         if (yaml.getStringList("dialog.body").isEmpty()) fail("dialog.body must contain text");
         if (yaml.getStringList("dialog.advanced.body").isEmpty()) fail("dialog.advanced.body must contain text");
         Set<Integer> categorySlots = new HashSet<>();

@@ -3,7 +3,7 @@
 # Text placeholders: %player%, %target%, %gamemode%, %kit%, %rounds%, %map%, %map-name%.
 # Use exact FrostDuels kit IDs. Create kits and arenas with /frostmenu (administrators only).
 # Map IDs are FrostDuels arena IDs; random selects a free arena.
-# Advanced Options is a configurable information page. Edit gameplay rules in FrostDuels/config.yml.
+# Advanced Options edits rules for this duel only. Server/kit defaults remain in config.yml.
 # Slots are zero-based. Category and gamemode slots must be unique within each menu.
 # Reload menu and gameplay config together with /frostmenu reload.
 
@@ -16,6 +16,7 @@ messages:
   self-duel: '&cYou cannot duel yourself.'
   expired: '&cThis menu has expired. Open /duel <player> again.'
   invalid-response: '&cChoose a valid whole number of rounds.'
+  invalid-rules: '&cInvalid rules: use whole Y levels (-2032 to 2031), food/saturation 0–20, minimum <= maximum, and enable terrain damage before building, breaking or explosions.'
   request-failed: '&cCould not send the duel request. Ask an administrator to check the console.'
 menus:
   # Open kit pages directly. Page arrows change groups; kit arrows change the highlight.
@@ -53,6 +54,8 @@ menus:
   filler:
     enabled: true
     material: GRAY_STAINED_GLASS_PANE
+    display-name: ' '
+    lore: []
   categories:
     title: '&bSelect Kit Category'
     rows: 3
@@ -100,6 +103,7 @@ dialog:
     back: '&e← Back'
     apply: '&aApply'
   map-title: '&6Select Map'
+  map-body: []
   advanced:
     title: '&6Advanced Options'
     body:
@@ -107,7 +111,26 @@ dialog:
     - '&7Kit ID: &a%kit%'
     - '&7First to &e%rounds% &7wins.'
     - '&7Map: &e%map-name%'
-    - '&7Arenas, kits, and match rules are managed by FrostDuels.'
+    - '&7Change the rules below, then click Apply.'
+    - '&7Back discards unsaved edits. These rules affect this duel only.'
+    - '&7Terrain damage must be enabled for building, breaking or explosions.'
+    - '&7Terrain changes require an arena snapshot. Y limits are inclusive.'
+    labels:
+      saturation: '&bSaturation enabled'
+      regeneration: '&bRegeneration enabled (master toggle)'
+      natural-regeneration: '&bNatural regeneration'
+      potion-regeneration: '&bPotion regeneration'
+      hunger: '&bHunger enabled'
+      terrain-damage: '&bTerrain damage enabled (master toggle)'
+      building: '&bAllow placing blocks'
+      breaking: '&bAllow breaking blocks'
+      explosion-terrain-damage: '&bAllow explosion terrain damage'
+      min-break-y: '&bMinimum mining Y'
+      max-break-y: '&bMaximum mining Y'
+      min-build-y: '&bMinimum building Y'
+      max-build-y: '&bMaximum building Y'
+      starting-food: '&bStarting food (0–20)'
+      starting-saturation: '&bStarting saturation (0–20)'
 maps:
   random: '&6Random'
 categories:

@@ -14,7 +14,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class FrostDuels extends JavaPlugin {
-    record Request(UUID sender, UUID target, String kit, int rounds, String map, long expires) {}
+    record Request(UUID sender, UUID target, String kit, int rounds, String map, long expires, Rules rules) {
+        Request(UUID sender, UUID target, String kit, int rounds, String map, long expires) {
+            this(sender, target, kit, rounds, map, expires, null);
+        }
+    }
     record RequestKey(UUID sender, UUID target) {}
     static final class Match {
         final MatchState state;
@@ -94,7 +98,14 @@ public class FrostDuels extends JavaPlugin {
         }
     }
 
+    protected Rules defaultRules(String kit) { return settings.rules(kit); }
+
     protected void request(Player sender, Player target, String kit, int rounds, String map) {
+        request(sender, target, kit, rounds, map, settings.rules(kit));
+    }
+
+    protected void request(Player sender, Player target, String kit, int rounds, String map, Rules selectedRules) {
+        Rules checkedRules = Rules.fromValues(selectedRules.values());
         if (sender.equals(target)) { tell(sender, "self"); return; }
         if (!sender.hasPermission("frostduels.use") || !target.hasPermission("frostduels.use") || !available(sender) || !available(target)) { tell(sender, "unavailable"); return; }
         if (store.kit(kit) == null || (!map.equals("random") && store.arena(map) == null)) { tell(sender, "not-found"); return; }
@@ -104,11 +115,17 @@ public class FrostDuels extends JavaPlugin {
         if (cooldowns.getOrDefault(sender.getUniqueId(), 0L) > now) { tell(sender, "cooldown"); return; }
         // At most one outstanding request per sender keeps challenge traffic bounded.
         requests.entrySet().removeIf(e -> e.getKey().sender().equals(sender.getUniqueId()));
-        Request request = new Request(sender.getUniqueId(), target.getUniqueId(), kit, rounds, map, now + settings.expiry * 1000L);
+        Request request = new Request(sender.getUniqueId(), target.getUniqueId(), kit, rounds, map, now + settings.expiry * 1000L, checkedRules);
         requests.put(new RequestKey(request.sender, request.target), request);
         cooldowns.put(sender.getUniqueId(), now + settings.cooldown * 1000L);
         Map<String, String> values = Map.of("player", sender.getName(), "target", target.getName(), "kit", kit, "rounds", "" + rounds, "map", map);
         tell(sender, "requested", values); tell(target, "received", values);
+        Map<String, String> ruleValues = new HashMap<>(values);
+        checkedRules.values().forEach((key, value) -> ruleValues.put(key, value instanceof Boolean flag
+                ? settings.text(flag ? "rule-enabled" : "rule-disabled") : value.toString()));
+        for (String key : List.of("request-rules-health", "request-rules-terrain", "request-rules-height")) {
+            tell(sender, key, ruleValues); tell(target, key, ruleValues);
+        }
         target.sendMessage(text(settings.text("accept-button"), values)
                 .clickEvent(playerButton(target, settings.expiry, actor -> respond(actor, request, true)))
                 .hoverEvent(HoverEvent.showText(text(settings.text("accept-hover"), values)))
@@ -146,7 +163,7 @@ public class FrostDuels extends JavaPlugin {
                 .filter(a -> request.map.equals("random") || request.map.equals(a.id()))
                 .filter(a -> !busy(a.id()) && !terrain.locked.contains(a.id())).toList();
         if (free.isEmpty()) { tell(target, "no-arena"); return; }
-        Rules rules = settings.rules(request.kit);
+        Rules rules = request.rules == null ? settings.rules(request.kit) : request.rules;
         if (rules.terrain()) free = free.stream().filter(terrain::has).toList();
         if (free.isEmpty()) { tell(target, "snapshot-required"); return; }
         DuelStore.Arena arena = free.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(free.size()));

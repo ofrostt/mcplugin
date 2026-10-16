@@ -110,6 +110,22 @@ public class MenuTest {
         assertTrue(server.dispatchCommand(player, "frostduels:duel Opponent")); assertEquals("Queue: mctiers.io", title());
     }
 
+    @Test void reloadUsesCustomPageHeadingAndFillerWithoutOverwritingConfig() throws Exception {
+        var file = new java.io.File(plugin.getDataFolder(), "menu.yml");
+        var yaml = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file);
+        yaml.set("categories.mctiers-io.title", "&bChoose a kit for %target%");
+        yaml.set("menus.filler.display-name", "&bFrost Border");
+        yaml.save(file);
+        PlayerMock admin = server.addPlayer("Admin"); admin.setOp(true);
+        server.dispatchCommand(admin, "frostmenu reload");
+        server.dispatchCommand(player, "duel Opponent");
+        assertEquals("Choose a kit for Opponent", title());
+        var filler = player.getOpenInventory().getTopInventory().getItem(0).getItemMeta();
+        assertEquals("Frost Border", PlainTextComponentSerializer.plainText().serialize(filler.displayName()));
+        assertEquals("&bChoose a kit for %target%", org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file)
+                .getString("categories.mctiers-io.title"));
+    }
+
     @Test void completedArenasAutomaticallyAppearAndConfirmedKitReachesIntegratedEngine() {
         PlayerMock admin = server.addPlayer("Admin"); admin.setOp(true);
         var world = server.addSimpleWorld("arena-world");

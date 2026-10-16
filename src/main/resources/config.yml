@@ -94,3 +94,10 @@ messages:
   snapshot-limit: '&cSnapshot exceeds 1000000 blocks, has invalid Y bounds, or excludes a spawn. Reduce arena padding or height.'
   arena-locked: '&cArena reset failed or is pending. An administrator must use /frostmenu arena reset <id> and check the console.'
   rules-blocked: '&cThat action is disabled by this kit’s rules or outside its allowed height.'
+
+  # Sent with each challenge so the opponent can see the rules before accepting.
+  rule-enabled: '&aOn'
+  rule-disabled: '&cOff'
+  request-rules-health: '&7Rules: Saturation %saturation% &7| Regen %regeneration% &7(natural %natural-regeneration%&7, potion %potion-regeneration%&7) | Hunger %hunger% &7| Food %starting-food% &7| Starting saturation %starting-saturation%'
+  request-rules-terrain: '&7Terrain %terrain-damage% &7| Build %building% &7| Break %breaking% &7| Explosions %explosion-terrain-damage%'
+  request-rules-height: '&7Mining Y: %min-break-y% to %max-break-y% | Building Y: %min-build-y% to %max-build-y%'

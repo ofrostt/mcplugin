@@ -131,7 +131,9 @@ CustomSword:
   kit: MySavedSwordKit
 ```
 
-Create that loadout with `/frostmenu kit save MySavedSwordKit`. Advanced Options is editable information; gameplay rule overrides are admin configuration rather than player controls. Exact native dialog placement depends on the Minecraft client and GUI scale. No resource pack is required.
+Create that loadout with `/frostmenu kit save MySavedSwordKit`. After selecting a kit, click **View Advanced Options** to open the rule editor. It has toggles for saturation, regeneration (master/natural/potion), hunger, terrain damage, placing, breaking, and explosion damage; number fields set the inclusive mining/building Y limits and starting food/saturation. **Apply** saves the rules for this challenge and returns to confirmation. **Back** discards unsaved edits. New challenges start from server/per-kit defaults; no global settings are changed. Both players receive the complete selected rule summary before acceptance. Terrain-changing matches still require an arena snapshot and stay inside its protected boundaries.
+
+Every screen heading is editable in `menu.yml`: `menus.categories.title`, `categories.<id>.title`, `dialog.title`, `dialog.advanced.title`, and `dialog.map-title`. The editor labels are under `dialog.advanced.labels`; its help text is `dialog.advanced.body`. Map help text is `dialog.map-body`. Buttons, icons, lore, filler material/name/lore, rows, and control slots are also editable. Existing config files inherit newly introduced settings without overwriting custom values. Exact native dialog placement depends on the Minecraft client and GUI scale. No resource pack is required.
 
 ## Recovery and development checks
 

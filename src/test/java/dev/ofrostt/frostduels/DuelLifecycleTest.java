@@ -102,6 +102,34 @@ class DuelLifecycleTest {
         plugin.finish(match, "stopped", Map.of());
     }
 
+    @Test void selectedRulesAreDisclosedFrozenAndEnforcedAfterAcceptance() {
+        var values = new HashMap<>(plugin.defaultRules("Sword-IO").values());
+        values.put("regeneration", false); values.put("saturation", false); values.put("starting-food", 12);
+        Rules selected = Rules.fromValues(values);
+        plugin.request(first, second, "Sword-IO", 2, "arena1", selected);
+        var pending = plugin.requests.get(new FrostDuels.RequestKey(first.getUniqueId(), second.getUniqueId()));
+        assertEquals(selected, pending.rules());
+        String message; StringBuilder received = new StringBuilder();
+        while ((message = second.nextMessage()) != null) received.append(ChatColor.stripColor(message));
+        assertTrue(received.toString().contains("Regen Off"));
+        assertTrue(received.toString().contains("Food 12"));
+        plugin.settings.yaml.set("rules.regeneration", true);
+        accept();
+        var match = plugin.playing.get(first.getUniqueId());
+        assertNotNull(match); assertEquals(selected, match.rules);
+        assertEquals(12, first.getFoodLevel()); assertEquals(0f, first.getSaturation());
+        server.getScheduler().performTicks(60);
+        var heal = new EntityRegainHealthEvent(first, 1, EntityRegainHealthEvent.RegainReason.SATIATED);
+        server.getPluginManager().callEvent(heal); assertTrue(heal.isCancelled());
+    }
+
+    @Test void playerSelectedTerrainChangesStillRequireArenaSnapshot() {
+        var values = new HashMap<>(plugin.defaultRules("Sword-IO").values());
+        values.put("terrain-damage", true); values.put("breaking", true);
+        plugin.request(first, second, "Sword-IO", 2, "arena1", Rules.fromValues(values));
+        accept(); assertTrue(plugin.playing.isEmpty()); assertFalse(plugin.store.pending(first.getUniqueId()));
+    }
+
     @Test void recoverySurvivesNewStoreAndCannotBeOverwritten() throws Exception {
         var store = plugin.store;
         store.snapshot(first);
