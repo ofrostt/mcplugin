@@ -1,5 +1,5 @@
 name: FrostMenu
-version: 1.2.0
+version: 1.2.1
 main: dev.ofrostt.frostmenu.FrostMenu
 api-version: '1.21.11'
 description: Configurable kit menus and native duel confirmation dialogs for Paper.

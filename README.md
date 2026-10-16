@@ -13,7 +13,7 @@ FrostMenu handles configurable inventory menus and native dialog text. FrostDuel
 ## Install and first duel
 
 1. Build with JDK 21 and Maven 3.9+: `bash build-all.sh`. Outputs:
-   - `target/FrostMenu-1.2.0.jar`
+   - `target/FrostMenu-1.2.1.jar`
    - `frostduels/target/FrostDuels-1.0.0.jar`
 2. Stop the server, remove PakMenu and Cloud, and put both new JARs in `plugins/`. Start Paper 1.21.11.
 3. Stand at a safe lobby **outside all arena regions**, then run `/fd setlobby` as an operator.
@@ -33,7 +33,7 @@ integration:
 
 Then run `/frostmenu reload`. Update any per-gamemode `command` overrides too. New installs already use this template. `/duel <player>` remains a FrostMenu alias; `/frostmenu <player>` is unambiguous if another plugin owns `/duel`.
 
-FrostMenu 1.2 opens kit pages directly. Bottom-left/right page arrows change groups, the two inner arrows cycle the highlighted kit, and the center Confirm button opens the dialog. Clicking a kit only highlights it, so a mouse click on a kit is optional. Selection is remembered separately on each page. Mouse hovering or keyboard arrow navigation is not used; these are server inventory buttons, so no client mod is needed.
+FrostMenu 1.2.1 opens kit pages directly in **mctiers.io → Subtiers** order. The earlier mctiers.com page is excluded by default. Set `menus.navigation.page-order` to a list of category IDs to choose which pages appear and their order. Existing category definitions are preserved; the page-order setting controls visibility. Bottom-left/right page arrows change groups, the two inner arrows cycle the highlighted kit, and the center Confirm button opens the dialog. Clicking a kit only highlights it, so a mouse click on a kit is optional. Selection is remembered separately on each page. Mouse hovering or keyboard arrow navigation is not used; these are server inventory buttons, so no client mod is needed.
 
 Existing configuration files remain unchanged: missing new navigation and sprite settings are supplied from built-in defaults. Existing custom headings, kit IDs, and item slots are preserved. Previous shipped emoji labels are upgraded to native item icons in memory; custom text is retained. Existing five-row default layouts have room for the controls; if your custom kit slots use 36/38/40/42/44, move either those kits or the controls. To adopt the compact new layout, put kit icons at slots 10–16, followed by 19–25. Copy new settings from `src/main/resources/config.yml` into your server config when you want to edit them.
 

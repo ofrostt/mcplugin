@@ -115,7 +115,7 @@ public class FrostMenu extends JavaPlugin implements Listener, CommandExecutor, 
         }
         Menu holder = new Menu(session, category);
         String title = category == null ? settings.text("menus.categories.title") : category.title();
-        if (settings.paged && title.equals("&aDuel &f%target%")) title = "&8Queue: %category%";
+        if (settings.paged && (title.equals("&aDuel &f%target%") || title.equals("&8Queue: Famous Kits"))) title = "&8Queue: %category%";
         holder.inventory = Bukkit.createInventory(holder, (category == null ? settings.categoryRows : category.rows()) * 9,
                 render(title, player, session));
         if (settings.fillerEnabled) {

@@ -40,7 +40,7 @@ public class MenuTest {
 
     @Test void opensFirstKitPageDirectlyWithFrameAndSelectedFirstKit() {
         assertTrue(server.dispatchCommand(player, "frostmenu Opponent"));
-        assertEquals("Queue: Famous Kits", title());
+        assertEquals("Queue: mctiers.io", title());
         assertEquals(45, player.getOpenInventory().getTopInventory().getSize());
         assertEquals(org.bukkit.Material.GRAY_STAINED_GLASS_PANE, player.getOpenInventory().getTopInventory().getItem(0).getType());
         assertTrue(selected(10)); assertFalse(selected(11));
@@ -66,11 +66,10 @@ public class MenuTest {
     @Test void pageArrowsChangeGroupsAndRememberTheirHighlightedKits() {
         server.dispatchCommand(player, "frostmenu Opponent");
         click(42); assertTrue(selected(11));
-        click(44); assertEquals("Queue: mctiers.com", title()); assertTrue(selected(10));
-        click(44); assertEquals("Queue: Subtiers Kits", title());
+        click(44); assertEquals("Queue: Subtiers", title());
         assertEquals(org.bukkit.Material.GRAY_STAINED_GLASS_PANE, player.getOpenInventory().getTopInventory().getItem(44).getType());
-        click(44); assertEquals("Queue: Subtiers Kits", title());
-        click(36); click(36); assertEquals("Queue: Famous Kits", title()); assertTrue(selected(11));
+        click(44); assertEquals("Queue: Subtiers", title());
+        click(36); assertEquals("Queue: mctiers.io", title()); assertTrue(selected(11));
     }
 
     @Test void cancelsShiftTransfersAndIgnoresRapidDuplicateNavigationClicks() {
@@ -101,11 +100,11 @@ public class MenuTest {
         var click = new InventoryClickEvent(player.getOpenInventory(), InventoryType.SlotType.CONTAINER,
                 44, ClickType.LEFT, InventoryAction.PICKUP_ALL);
         server.getPluginManager().callEvent(click); target.disconnect(); server.getScheduler().performOneTick();
-        assertEquals("Queue: Famous Kits", title());
+        assertEquals("Queue: mctiers.io", title());
         assertEquals("This menu has expired. Open /frostmenu <player> again.", org.bukkit.ChatColor.stripColor(player.nextMessage()));
     }
 
     @Test void namespacedDuelAliasAlsoOpensKitPage() {
-        assertTrue(server.dispatchCommand(player, "frostmenu:duel Opponent")); assertEquals("Queue: Famous Kits", title());
+        assertTrue(server.dispatchCommand(player, "frostmenu:duel Opponent")); assertEquals("Queue: mctiers.io", title());
     }
 }

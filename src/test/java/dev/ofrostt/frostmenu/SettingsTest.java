@@ -23,8 +23,8 @@ class SettingsTest {
 
     @Test void defaultConfigLoadsAllSampleCategoriesAndExactKitIds() throws Exception {
         Settings settings = new Settings(file.toFile());
-        assertEquals(3, settings.categories.size());
-        assertEquals(19, settings.categories.stream().mapToInt(c -> c.modes().size()).sum());
+        assertEquals(2, settings.categories.size());
+        assertEquals(12, settings.categories.stream().mapToInt(c -> c.modes().size()).sum());
         var elytra = settings.categories.getFirst().modes().stream().filter(m -> m.id().equals("Elytra-IO")).findFirst().orElseThrow();
         assertEquals("Elytra-IO", elytra.kit()); // No accidental -IO-IO suffix.
         assertEquals("random", settings.arenas.getFirst().id());
@@ -88,6 +88,16 @@ class SettingsTest {
         config.set("menus.navigation.next-kit.slot", 10); config.save(file.toFile());
         assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
         config.set("menus.navigation.next-kit.slot", 40); config.save(file.toFile());
+        assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
+    }
+
+    @Test void configuredPageOrderControlsVisibilityAndRejectsUnknownOrDuplicateIds() throws Exception {
+        var config = YamlConfiguration.loadConfiguration(file.toFile());
+        config.set("menus.navigation.page-order", java.util.List.of("subtiers", "mctiers-io")); config.save(file.toFile());
+        assertEquals(java.util.List.of("subtiers", "mctiers-io"), new Settings(file.toFile()).categories.stream().map(Settings.Category::id).toList());
+        config.set("menus.navigation.page-order", java.util.List.of("missing")); config.save(file.toFile());
+        assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
+        config.set("menus.navigation.page-order", java.util.List.of("subtiers", "subtiers")); config.save(file.toFile());
         assertThrows(IllegalArgumentException.class, () -> new Settings(file.toFile()));
     }
 }

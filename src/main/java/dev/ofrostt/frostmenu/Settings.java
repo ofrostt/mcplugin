@@ -99,7 +99,14 @@ final class Settings {
             parsed.add(new Category(id, icon, title, rows, List.copyOf(parsedModes)));
         }
         if (parsed.isEmpty()) fail("At least one category is required");
-        categories = List.copyOf(parsed);
+        String orderPath = "menus.navigation.page-order";
+        List<String> order = yaml.getStringList(orderPath);
+        Map<String, Category> byId = new LinkedHashMap<>();
+        for (Category category : parsed) byId.put(category.id(), category);
+        if (new HashSet<>(order).size() != order.size()) fail("Duplicate category in " + orderPath);
+        boolean known = order.stream().allMatch(byId::containsKey);
+        if (!known && yaml.contains(orderPath, true)) fail("Unknown category in " + orderPath);
+        categories = order.isEmpty() || !known ? List.copyOf(parsed) : order.stream().map(byId::get).toList();
         List<Arena> maps = new ArrayList<>();
         ConfigurationSection mapSection = section("maps");
         for (String id : mapSection.getKeys(false)) maps.add(new Arena(DuelRules.token(id), required(mapSection, id)));

@@ -30,6 +30,8 @@ menus:
   # Confirm opens the dialog. Clicking an icon only highlights it.
   navigation:
     enabled: true
+    # Category IDs to show, in arrow-navigation order. Add custom category IDs here.
+    page-order: [mctiers-io, subtiers]
     selected-lore: '&aSelected — press Confirm below'
     previous-page:
       material: ARROW
@@ -123,7 +125,7 @@ categories:
     lore:
     - '&7Kits from mctiers.io'
     slot: 11
-    title: '&8Queue: Famous Kits'
+    title: '&8Queue: mctiers.io'
     rows: 5
     gamemodes:
       Sword:
@@ -175,71 +177,13 @@ categories:
         - '&7Use the arrows below, then Confirm'
         slot: 16
         kit: Potion-IO
-  mctiers-com:
-    material: GREEN_DYE
-    display-name: '&amctiers.com'
-    lore:
-    - '&7Kits from mctiers.com'
-    slot: 13
-    title: '&8Queue: mctiers.com'
-    rows: 5
-    gamemodes:
-      Sword:
-        material: DIAMOND_SWORD
-        display-name: '&aSword'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 10
-        kit: Sword-COM
-      UHC:
-        material: GOLDEN_APPLE
-        display-name: '&aUHC'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 11
-        kit: UHC-COM
-      Axe:
-        material: DIAMOND_AXE
-        display-name: '&aAxe'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 12
-        kit: Axe-COM
-      SMP:
-        material: ENDER_PEARL
-        display-name: '&aSMP'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 13
-        kit: SMP-COM
-      Mace:
-        material: MACE
-        display-name: '&aMace'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 14
-        kit: Mace-COM
-      NetheritePot:
-        material: NETHERITE_HELMET
-        display-name: '&aNetheritePot'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 15
-        kit: NetheritePot-COM
-      Potion:
-        material: POTION
-        display-name: '&aPotion'
-        lore:
-        - '&7Use the arrows below, then Confirm'
-        slot: 16
-        kit: Potion-COM
   subtiers:
     material: YELLOW_DYE
     display-name: '&aSubtiers Kits'
     lore:
     - '&7Kits from subtiers.net'
     slot: 15
-    title: '&8Queue: Subtiers Kits'
+    title: '&8Queue: Subtiers'
     rows: 5
     gamemodes:
       Diamond-SMP:
