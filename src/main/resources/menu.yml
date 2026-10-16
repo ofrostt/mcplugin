@@ -9,7 +9,7 @@
 
 session-timeout-seconds: 300
 messages:
-  usage: '&bFrostDuels &8» &7/duel <player>'
+  usage: '&bFrostMenu &8» &bⓘ Invalid arguments! Use: /duel <player>'
   players-only: '&cOnly players can open the duel menu.'
   no-permission: '&cYou do not have permission to do that.'
   player-not-found: '&cThat player is offline or unavailable.'

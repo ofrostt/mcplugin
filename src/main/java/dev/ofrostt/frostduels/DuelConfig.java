@@ -41,6 +41,10 @@ final class DuelConfig {
         String value = yaml.getString("messages." + key);
         if (value == null) throw new IllegalArgumentException("Missing message: " + key);
         if (key.equals("command-blocked") && value.equals("&cYou can only use /frostduels leave during a duel.")) return "&cUse the Leave Duel button to forfeit.";
+        if (key.equals("prefix") && value.equals("&bFrostDuels &8» &r")) return "&bFrostMenu &8» &r";
+        if (key.equals("bad-arguments") && value.equals("&cInvalid arguments. Use /frostmenu help.")) return "&bⓘ Invalid arguments! Use: /frostmenu help";
+        if (key.equals("help") && value.equals("&7/duel <player> — respond to challenges and leave matches using the chat buttons.")) return "&b" + value.substring(2);
+        if (key.equals("admin-help") && value.equals("&7/frostmenu kit save|load|delete|list [id], /frostmenu arena create|delete|list|setspawn|snapshot|reset [id], /frostmenu setlobby, /frostmenu stop <player>, /frostmenu recover <player>, /frostmenu reload")) return "&b" + value.substring(2);
         return value;
     }
 }

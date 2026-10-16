@@ -366,7 +366,8 @@ public class FrostMenu extends FrostDuels implements Listener, CommandExecutor, 
             case "&a♟ &fSend Duel" -> "%rounds-icon% &fSend Duel";
             case "&7Kit: &a%gamemode%" -> "&7Kit: %kit-icon% &a&l%gamemode-name%";
             case "&6Confirm Duel! ⚠" -> "&6Confirm Duel!";
-            case "&bFrostMenu &8» &7/frostmenu <player> or /frostmenu reload" -> "&bFrostDuels &8» &7/duel <player>";
+            case "&bFrostMenu &8» &7/frostmenu <player> or /frostmenu reload",
+                 "&bFrostDuels &8» &7/duel <player>" -> "&bFrostMenu &8» &bⓘ Invalid arguments! Use: /duel <player>";
             case "&cThis menu has expired. Open /frostmenu <player> again." -> "&cThis menu has expired. Open /duel <player> again.";
             default -> text;
         };
